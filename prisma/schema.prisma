@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AppUser {
+  userId       Int           @id @default(autoincrement()) @map("user_id")
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @map("password_hash") @db.VarChar(255)
+  name         String        @db.VarChar(100)
+  phone        String        @db.VarChar(50)
+  role         String        @db.VarChar(20)
+  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  histories    HairHistory[]
+  reservations Reservation[]
+  shops        Shop[]
+
+  @@map("app_user")
+}
+
+model Shop {
+  shopId         Int            @id @default(autoincrement()) @map("shop_id")
+  ownerId        Int?           @map("owner_id")
+  shopName       String         @map("shop_name") @db.VarChar(255)
+  baseAddress    String         @map("base_address") @db.VarChar(255)
+  latitude       Decimal        @db.Decimal(10, 7)
+  longitude      Decimal        @db.Decimal(11, 7)
+  rootPrice      Int            @default(0) @map("root_price")
+  fullPrice      Int            @default(0) @map("full_price")
+  businessNumber String         @unique @map("business_number") @db.VarChar(100)
+  createdAt      DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
+  designers      Designer[]
+  histories      HairHistory[]
+  reservations   Reservation[]
+  owner          AppUser?       @relation(fields: [ownerId], references: [userId], onDelete: Cascade, onUpdate: NoAction)
+  subscriptions  Subscription[]
+
+  @@map("shop")
+}
+
+model Designer {
+  designerId   Int          @id @default(autoincrement()) @map("designer_id")
+  shopId       Int?         @map("shop_id")
+  designerName String       @map("designer_name") @db.VarChar(100)
+  position     String       @db.VarChar(50)
+  isActive     Boolean?     @default(true) @map("is_active")
+  createdAt    DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  reservations AssignedTo[]
+  shop         Shop?        @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("designer")
+}
+
+model Reservation {
+  reservationId   Int           @id @default(autoincrement()) @map("reservation_id")
+  shopId          Int?          @map("shop_id")
+  clientId        Int?          @map("client_id")
+  reservationTime DateTime      @map("reservation_time") @db.Timestamptz(6)
+  menuType        String        @map("menu_type") @db.VarChar(50)
+  totalAmount     Int           @map("total_amount")
+  status          String        @default("CONFIRMED") @db.VarChar(20)
+  createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  designers       AssignedTo[]
+  histories       HairHistory[]
+  client          AppUser?      @relation(fields: [clientId], references: [userId], onUpdate: NoAction)
+  shop            Shop?         @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("reservation")
+}
+
+model AssignedTo {
+  reservationId Int         @map("reservation_id")
+  designerId    Int         @map("designer_id")
+  designer      Designer    @relation(fields: [designerId], references: [designerId], onDelete: Cascade, onUpdate: NoAction)
+  reservation   Reservation @relation(fields: [reservationId], references: [reservationId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([reservationId, designerId])
+  @@map("assigned_to")
+}
+
+model HairHistory {
+  historyId     Int          @id @default(autoincrement()) @map("history_id")
+  reservationId Int?         @map("reservation_id")
+  clientId      Int?         @map("client_id")
+  shopId        Int?         @map("shop_id")
+  treatmentNote String?      @map("treatment_note")
+  createdAt     DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  client        AppUser?     @relation(fields: [clientId], references: [userId], onDelete: Cascade, onUpdate: NoAction)
+  reservation   Reservation? @relation(fields: [reservationId], references: [reservationId], onDelete: Cascade, onUpdate: NoAction)
+  shop          Shop?        @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("hair_history")
+}
+
+model Subscription {
+  subscriptionId Int       @id @default(autoincrement()) @map("subscription_id")
+  shopId         Int?      @map("shop_id")
+  status         String    @db.VarChar(20)
+  startDate      DateTime  @map("start_date") @db.Timestamptz(6)
+  endDate        DateTime  @map("end_date") @db.Timestamptz(6)
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  shop           Shop?     @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("subscription")
+}
