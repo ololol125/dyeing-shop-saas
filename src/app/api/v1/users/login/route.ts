@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // 🟢 기존 import { PrismaClient } 지우고 이것으로 변경!
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-
-const prisma = new PrismaClient();
 
 // 🔐 JWT 토큰을 서명할 때 쓸 비밀키 (실무에서는 .env에 넣어야 하며, 없으면 임시 문자열 사용)
 const JWT_SECRET = process.env.JWT_SECRET || "dyeing-shop-saas-secret-key-1234";

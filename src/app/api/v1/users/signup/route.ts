@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // 🟢 기존 import { PrismaClient } 지우고 이것으로 변경!
 import bcrypt from "bcrypt";
 
 // 🔌 Prisma Client 인스턴스 생성
-const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
