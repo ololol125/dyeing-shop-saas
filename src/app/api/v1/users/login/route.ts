@@ -1,49 +1,73 @@
 import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+const prisma = new PrismaClient();
+
+// 🔐 JWT 토큰을 서명할 때 쓸 비밀키 (실무에서는 .env에 넣어야 하며, 없으면 임시 문자열 사용)
+const JWT_SECRET = process.env.JWT_SECRET || "dyeing-shop-saas-secret-key-1234";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { email, password } = body;
 
-    // 1. 유효성 검사 (이메일이나 비밀번호가 비어있는지 체크)
+    // 1. 유효성 검사 (이메일, 비밀번호 필수) API 명세서 및 CI-CD 파이프라인 구축.pdf]
     if (!email || !password) {
       return NextResponse.json(
-        { success: false, error: "이메일과 비밀번호를 모두 입력해주세요." },
+        { success: false, error: "이메일과 비밀번호를 모두 입력해 주세요." },
         { status: 400 },
       );
     }
 
-    // 2. [임시 하드코딩] 테스트용 로그인 처리
-    // 나중에 이 부분에 DB 유저 조회 및 bcrypt 비밀번호 비교 로직이 들어갑니다.
-    if (email === "test@test.com" && password === "1234") {
-      // 3. 로그인 성공 시 프론트엔드(Flutter)에 넘겨줄 표준 응답 데이터 구조
+    // 2. Supabase DB에서 해당 이메일을 가진 유저가 있는지 조회
+    const user = await prisma.appUser.findUnique({
+      where: { email },
+    });
+
+    // 유저가 존재하지 않으면 401 반환 (보안상 이메일/비번 중 뭐가 틀렸는지 숨기는 것이 정석)
+    if (!user) {
       return NextResponse.json(
-        {
-          success: true,
-          message: "로그인 인증에 성공했습니다.",
-          // 📦 유저 정보 세션
-          user: {
-            id: "usr_20260605",
-            email: email,
-            name: "홍길동",
-            role: "CUSTOMER", // CUSTOMER 또는 DESIGNER, ADMIN 등
-          },
-          // 🎫 중요 ⭐: 앞으로 모든 비밀 보안 API 주소에 프리패스로 쓰일 암호화 토큰
-          // 실제 서비스에서는 jwt 라이브러리로 생성하지만, 구조 연동을 위해 표준 양식으로 제공합니다.
-          accessToken:
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_token_for_dyeing_shop_saas_auth_session",
-        },
-        { status: 200 }, // 로그인 성공은 보통 200 OK를 씁니다.
+        { success: false, error: "이메일 또는 비밀번호가 일치하지 않습니다." },
+        { status: 401 },
       );
     }
 
-    // 4. 로그인 정보가 틀렸을 때의 예외 처리
+    // 3. 🔐 입력된 비밀번호와 DB에 저장된 암호화 비밀번호(passwordHash) 대조 (bcrypt 비교)
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { success: false, error: "이메일 또는 비밀번호가 일치하지 않습니다." },
+        { status: 401 },
+      );
+    }
+
+    // 4. 🎟️ 인증 성공! 유저 고유 ID와 권한(Role)을 인코딩한 JWT 토큰 생성 (유효기간 7일)
+    const token = jwt.sign(
+      { userId: user.userId, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    // 5. 프론트엔드(Flutter)가 세션을 유지할 수 있도록 토큰과 유저 기본 정보 반환 API 명세서 및 CI-CD 파이프라인 구축.pdf]
     return NextResponse.json(
-      { success: false, error: "이메일 또는 비밀번호가 일치하지 않습니다." },
-      { status: 401 }, // 401 Unauthorized
+      {
+        success: true,
+        message: "로그인에 성공했습니다.",
+        token,
+        user: {
+          userId: user.userId,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      },
+      { status: 200 },
     );
   } catch (error) {
-    console.error("🚨 로그인 라우트 에러:", error);
+    console.error("🚨 로그인 라우트 서버 내부 에러:", error);
     return NextResponse.json(
       { success: false, error: "서버 내부 오류가 발생했습니다." },
       { status: 500 },
