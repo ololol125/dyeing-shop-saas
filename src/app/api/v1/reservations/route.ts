@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth"; // 🟢 우리가 만든 무적의 공통 헬퍼 임포트!
+import { verifyAuth } from "@/lib/auth"; // 공통 헬퍼 함수 임포트
 
 // 1. 📅 매장별 예약 목록 조회 (GET)
-// 로그인한 원장님 매장의 모든 예약 내역을 날짜순으로 정렬해서 가져옵니다.
 export async function GET(request: Request) {
   try {
     const decoded = verifyAuth(request);
@@ -29,13 +28,19 @@ export async function GET(request: Request) {
       );
     }
 
-    // 🎯 해당 매장의 예약 목록을 예약 시간순(오름차순)으로 조회
+    // 🎯 예약 목록을 가져올 때 배정된 디자이너 정보까지 묶어서(include) 최신순으로 가져옵니다.
     const reservations = await prisma.reservation.findMany({
       where: { shopId: shop.shopId },
       include: {
-        client: true, // 어떤 손님이 예약했는지 유저 정보 조인
+        client: true, // 예약한 고객 정보 조인
+        designers: {
+          // 🟢 영현님 스키마 필드명에 맞게 designers로 매핑!
+          include: {
+            designer: true, // 중간 테이블을 거쳐 실제 디자이너 이름/직급까지 조인
+          },
+        },
       },
-      orderBy: { reservationTime: "asc" }, // 곧 다가올 예약이 맨 위로 오도록 정렬
+      orderBy: { reservationTime: "asc" },
     });
 
     return NextResponse.json(
@@ -66,8 +71,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    // 영현님의 DB 실제 컬럼명(clientId, reservationTime, menuType, totalAmount)에 맞게 파싱
-    const { clientId, reservationTime, menuType, totalAmount } = body;
+    const { clientId, reservationTime, menuType, totalAmount, designerIds } =
+      body;
 
     // 필수 항목 및 유효성 검증
     if (
@@ -77,16 +82,11 @@ export async function POST(request: Request) {
       totalAmount === undefined
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "필수 입력 항목(손님ID, 예약시간, 메뉴타입, 금액)이 누락되었습니다.",
-        },
+        { success: false, error: "필수 입력 항목이 누락되었습니다." },
         { status: 400 },
       );
     }
 
-    // DB의 CHECK 제약조건 ('ROOT_DYE', 'FULL_DYE') 위반 방지 검증
     if (menuType !== "ROOT_DYE" && menuType !== "FULL_DYE") {
       return NextResponse.json(
         {
@@ -109,22 +109,39 @@ export async function POST(request: Request) {
       );
     }
 
-    // 🎯 실제 reservation 테이블 규격에 맞게 저장
+    // 🎯 [Prisma 연전 인서트] 예약 생성과 동시에 assigned_to 중간 테이블 매핑 데이터를 한 방에 저장!
     const newReservation = await prisma.reservation.create({
       data: {
         shopId: shop.shopId,
         clientId: Number(clientId),
-        reservationTime: new Date(reservationTime), // 문자열로 들어온 시간을 Date 객체로 변환
+        reservationTime: new Date(reservationTime),
         menuType,
         totalAmount: Number(totalAmount),
-        status: "CONFIRMED", // 기본값 설정
+        status: "CONFIRMED",
+        // 🟢 designers 관계 필드를 이용해 배정된 디자이너 ID들을 중간 테이블 레코드로 create 시킵니다.
+        designers:
+          designerIds && designerIds.length > 0
+            ? {
+                create: designerIds.map((id: number) => ({
+                  designerId: Number(id),
+                })),
+              }
+            : undefined,
+      },
+      // 응답 결과에 저장된 디자이너 내역도 함께 포함시킵니다.
+      include: {
+        designers: {
+          include: {
+            designer: true,
+          },
+        },
       },
     });
 
     return NextResponse.json(
       {
         success: true,
-        message: "예약이 성공적으로 등록되었습니다.",
+        message: "디자이너가 지정된 예약이 성공적으로 등록되었습니다.",
         reservation: newReservation,
       },
       { status: 201 },
