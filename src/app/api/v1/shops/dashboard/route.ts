@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
-import { verifyAuth } from "@/lib/auth"; // ⭕ 실제 존재하는 함수로 교정
+import { verifyAuth } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
@@ -49,11 +49,12 @@ export async function GET(request: Request) {
       designersWithReservations,
     ] = await prisma.$transaction([
       // 쿼리 A: 이번 달 총 예약 내역 (매출, 고객 수 산출용)
+      // 💡 매출로 인정되는 CONFIRMED와 COMPLETED 상태만 타겟팅합니다.
       prisma.reservation.findMany({
         where: {
           shopId: shopId,
           reservationTime: { gte: monthStart, lte: monthEnd },
-          status: { not: "CANCELLED" },
+          status: { in: ["CONFIRMED", "COMPLETED"] },
         },
         select: { totalAmount: true, clientId: true },
       }),
@@ -83,6 +84,7 @@ export async function GET(request: Request) {
       }),
 
       // 쿼리 D: 이번 달 디자이너 실적 정렬용
+      // 💡 디자이너 실적 합산에도 CONFIRMED 뿐만 아니라 완료된 COMPLETED 상태도 포함되도록 스코프 확장
       prisma.designer.findMany({
         where: { shopId: shopId, isActive: true },
         select: {
@@ -92,7 +94,7 @@ export async function GET(request: Request) {
             where: {
               reservation: {
                 reservationTime: { gte: monthStart, lte: monthEnd },
-                status: "CONFIRMED",
+                status: { in: ["CONFIRMED", "COMPLETED"] },
               },
             },
             include: { reservation: { select: { totalAmount: true } } },
@@ -102,6 +104,7 @@ export async function GET(request: Request) {
     ]);
 
     // --- [데이터 비즈니스 로직 가공 구역] ---
+    // 1) 매출액 및 유니크 고객 수 가공
     const totalRevenue = thisMonthReservations.reduce(
       (sum, res) => sum + res.totalAmount,
       0,
@@ -111,13 +114,16 @@ export async function GET(request: Request) {
     );
     const activeCustomers = uniqueClients.size;
 
+    // 2) 오늘 예약 현황 스코어 보드 가공
+    // 💡 오늘 예약 완료(COMPLETED)된 건도 방문한 예약이므로 확정 건수와 합산하거나 표기할 수 있습니다.
     const todayReservationsCount = todayReservations.filter(
-      (res) => res.status === "CONFIRMED",
+      (res) => res.status === "CONFIRMED" || res.status === "COMPLETED",
     ).length;
     const pendingReservationsCount = todayReservations.filter(
       (res) => res.status === "PENDING",
     ).length;
 
+    // 3) 최근 5건 예약 상태 한글화 및 가공 라벨링
     const formattedReservations = recentReservations.map((res) => {
       const primaryDesigner = res.designers[0]?.designer;
       const designerStr = primaryDesigner
@@ -127,12 +133,18 @@ export async function GET(request: Request) {
         id: res.reservationId.toString(),
         customerName: res.client?.name || "익명 회원",
         designerName: designerStr,
-        treatment: res.menuType,
+        treatment:
+          res.menuType === "FULL_DYE"
+            ? "전체 염색"
+            : res.menuType === "ROOT_DYE"
+              ? "뿌리 염색"
+              : res.menuType,
         time: res.reservationTime.toISOString().substring(11, 16),
         status: res.status,
       };
     });
 
+    // 4) 이번 달 디자이너 실적 랭킹 스택 가공
     const topDesigners = designersWithReservations
       .map((d) => {
         const resCount = d.reservations.length;
@@ -156,14 +168,14 @@ export async function GET(request: Request) {
       }))
       .slice(0, 3);
 
-    // 3. 최종 성공 결과 반환
+    // 3. 최종 성공 결과 반환 (기존 프론트엔드가 요구하던 구조 유지)
     return NextResponse.json({
       success: true,
       summary: {
         totalRevenue,
-        revenueGrowth: 12.5,
+        revenueGrowth: 12.5, // 목업 성장률 데이터 유지
         activeCustomers,
-        customerGrowth: 8.2,
+        customerGrowth: 8.2, // 목업 성장률 데이터 유지
         todayReservations: todayReservationsCount,
         pendingReservations: pendingReservationsCount,
       },

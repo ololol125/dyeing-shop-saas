@@ -1,38 +1,57 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
-  Calendar,
-  Clock,
   User,
   Phone,
+  Calendar,
+  Clock,
   Scissors,
-  DollarSign,
   Loader2,
   AlertCircle,
-  Filter,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Play,
+  FileText,
+  UserPlus,
 } from "lucide-react";
+
+interface DesignerBadge {
+  designerId: number;
+  designerName: string;
+  position: string;
+}
 
 interface Reservation {
   reservationId: number;
+  clientId: number;
   customerName: string;
   customerPhone: string;
-  treatment: "ROOT_DYE" | "FULL_DYE" | string;
+  treatment: string;
   totalAmount: number;
   reservationTime: string;
-  status: "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NOSHOW"; // ⭕ DDL 제약조건 반영
+  status: string;
   designerName: string;
+  designers: DesignerBadge[];
 }
 
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [shopDesigners, setShopDesigners] = useState<DesignerBadge[]>([]); // 🎯 매장 전체 디자이너 풀
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  // 시술 완료 모달 상태
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedResId, setSelectedResId] = useState<number | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [treatmentNote, setTreatmentNote] = useState("");
+  const [submittingHistory, setSubmittingHistory] = useState(false);
+
+  // 🎯 디자이너 변경 모달 상태
+  const [isDesignerModalOpen, setIsDesignerModalOpen] = useState(false);
+  const [targetResId, setTargetResId] = useState<number | null>(null);
+  const [selectedDesignerIds, setSelectedDesignerIds] = useState<number[]>([]);
+  const [updatingDesigner, setUpdatingDesigner] = useState(false);
 
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
@@ -40,25 +59,29 @@ export default function ReservationsPage() {
     if (parts.length === 2) return parts.pop()?.split(";").shift();
   };
 
-  // 🔄 1. 이번 달 예약 목록 로드 (GET)
-  const fetchReservations = async () => {
+  // 데이터 로드 엔진 (예약 목록 + 매장 디자이너 풀 동시 로드)
+  const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
       const token = getCookie("token");
-      const res = await fetch("/api/v1/reservations", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const headers = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
 
-      if (!res.ok) throw new Error("예약 현황 목록을 불러오지 못했습니다.");
-      const resData = await res.json();
+      // 1. 예약 목록 fetch
+      const resRes = await fetch("/api/v1/reservations", { headers });
+      const resData = await resRes.json();
 
-      if (resData.success) {
+      // 2. 디자이너 목록 fetch
+      const desRes = await fetch("/api/v1/designers", { headers });
+      const desData = await desRes.json();
+
+      if (resData.success && desData.success) {
         setReservations(resData.data || []);
+        setShopDesigners(desData.data || []);
       } else {
-        throw new Error(resData.error || "조회 실패");
+        throw new Error("데이터를 연동하는 데 실패했습니다.");
       }
     } catch (err: any) {
       console.error(err);
@@ -69,267 +92,389 @@ export default function ReservationsPage() {
   };
 
   useEffect(() => {
-    fetchReservations();
+    fetchData();
   }, []);
 
-  // 🔄 2. 예약 상태 변경 제어 핸들러 (PATCH)
-  const handleUpdateStatus = async (
-    reservationId: number,
-    nextStatus: "COMPLETED" | "CANCELLED" | "NOSHOW",
-  ) => {
+  // 🎯 담당 디자이너 변경 처리 제출 (PATCH 호출 구역!)
+  const handleDesignerUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetResId) return;
+
+    setUpdatingDesigner(true);
     try {
       const token = getCookie("token");
+
+      // 🚀 백엔드 고도화용 PATCH API 정밀 타격
       const res = await fetch("/api/v1/reservations", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ reservationId, status: nextStatus }),
+        body: JSON.stringify({
+          reservationId: targetResId,
+          designerIds: selectedDesignerIds, // 체크된 디자이너 ID 배열 전송
+        }),
       });
 
       const resData = await res.json();
       if (!res.ok || !resData.success)
-        throw new Error(resData.error || "상태 변경 실패");
+        throw new Error(resData.error || "변경 실패");
 
-      // 새로고침 연동
-      fetchReservations();
+      setIsDesignerModalOpen(false);
+      setTargetResId(null);
+      fetchData(); // 🔄 목록 새로고침으로 실시간 배지 동기화
+      alert("담당 디자이너 배정이 성공적으로 변경되었습니다!");
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setUpdatingDesigner(false);
     }
   };
 
-  // 클라이언트 사이드 필터링
-  const filteredReservations = reservations.filter((res) => {
-    if (statusFilter === "ALL") return true;
-    return res.status === statusFilter;
-  });
+  // 디자이너 모달 오픈 핸들러
+  const openDesignerModal = (
+    resId: number,
+    currentDesigners: DesignerBadge[],
+  ) => {
+    setTargetResId(resId);
+    // 현재 배정되어 있는 디자이너 ID들로 체크박스 초기값 매핑
+    setSelectedDesignerIds(currentDesigners.map((d) => d.designerId));
+    setIsDesignerModalOpen(true);
+  };
+
+  // 시술 완료 모달 열기
+  const openHistoryModal = (reservationId: number, clientId: number) => {
+    setSelectedResId(Number(reservationId));
+    setSelectedClientId(Number(clientId));
+    setTreatmentNote("");
+    setIsHistoryModalOpen(true);
+  };
+
+  // 시술 완료 제출 (POST)
+  const handleCompleteHistorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedResId || !selectedClientId) return;
+
+    setSubmittingHistory(true);
+    try {
+      const token = getCookie("token");
+      const res = await fetch("/api/v1/histories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          reservationId: selectedResId,
+          clientId: selectedClientId,
+          treatmentNote: treatmentNote,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok || !resData.success) throw new Error(resData.error || "실패");
+
+      setIsHistoryModalOpen(false);
+      fetchData();
+      alert("시술 마감 및 차트 기록 완료!");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSubmittingHistory(false);
+    }
+  };
+
+  // 체크박스 토글 핸들러
+  const handleDesignerCheckboxChange = (id: number) => {
+    setSelectedDesignerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
+        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <p className="text-sm text-slate-500 mt-4 font-medium">
+          예약 데이터 정렬 중...
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800">
-      {/* 타이틀 및 필터 세션 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            예약 현황 관리
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            우리 매장에 접수된 시술 예약 내역을 실시간으로 확인하고 제어합니다.
-          </p>
-        </div>
-
-        {/* 변경된 DDL 기준 맞춤 상태 필터 */}
-        <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm self-start sm:self-auto">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs font-semibold text-slate-600 bg-transparent outline-none cursor-pointer"
-          >
-            <option value="ALL">전체 상태 보기</option>
-            <option value="CONFIRMED">✅ 예약 확정</option>
-            <option value="COMPLETED">✨ 시술 완료</option>
-            <option value="CANCELLED">❌ 예약 취소</option>
-            <option value="NOSHOW">⚠️ 노쇼 (No-Show)</option>
-          </select>
-        </div>
+    <div className="p-6 md:p-10 font-sans antialiased text-slate-800 bg-slate-50/30 min-h-screen">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          예약 현황 관리
+        </h1>
+        <p className="text-xs text-slate-400 mt-0.5">
+          매장 담당 디자이너 배지를 클릭하여 실시간으로 담당자를 변경할 수
+          있습니다.
+        </p>
       </div>
 
-      {/* 메인 데이터 보드 */}
-      {loading ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-          <p className="text-xs text-slate-400 mt-3 font-medium">
-            실시간 스케줄 매핑 중...
-          </p>
-        </div>
-      ) : error ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm text-center">
-          <div className="p-3 bg-rose-50 text-rose-500 rounded-xl mb-3">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            예약 일정을 가져오지 못했습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm">{error}</p>
-        </div>
-      ) : filteredReservations.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm min-h-[350px]">
-          <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-4">
-            <Calendar className="w-8 h-8" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800">
-            조건에 맞는 예약이 없습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-[260px]">
-            조회된 시술 접수 현황이 확인되지 않습니다.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-6 py-4">고객 정보</th>
-                  <th className="px-6 py-4">예약 시간</th>
-                  <th className="px-6 py-4">시술 메뉴 / 담당자</th>
-                  <th className="px-6 py-4">시술 금액</th>
-                  <th className="px-6 py-4">현재 상태</th>
-                  <th className="px-6 py-4 text-center">매장 실시간 액션</th>
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <th className="px-6 py-4">고객 정보</th>
+                <th className="px-6 py-4">예약 시간</th>
+                <th className="px-6 py-4">시술 메뉴 / 담당자 (클릭 시 변경)</th>
+                <th className="px-6 py-4">시술 금액</th>
+                <th className="px-6 py-4">현재 상태</th>
+                <th className="px-6 py-4 text-center">매장 실시간 액션</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-600 font-medium">
+              {reservations.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-6 py-12 text-center text-slate-400"
+                  >
+                    데이터가 없습니다.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                {filteredReservations.map((res) => {
-                  const resDate = new Date(res.reservationTime);
+              ) : (
+                reservations.map((res) => {
+                  const date = new Date(res.reservationTime);
                   return (
                     <tr
                       key={res.reservationId}
-                      className="hover:bg-slate-50/50 transition-colors"
+                      className="hover:bg-slate-50/30 transition-colors"
                     >
-                      {/* 1. 고객명 및 번호 */}
                       <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800 flex items-center">
-                            <User className="w-3.5 h-3.5 mr-1 text-slate-400" />{" "}
-                            {res.customerName}
-                          </span>
-                          <span className="text-xs text-slate-400 mt-0.5 flex items-center font-mono">
-                            <Phone className="w-3 h-3 mr-1 text-slate-300" />{" "}
-                            {res.customerPhone}
-                          </span>
+                        <Link
+                          href={`/clients/${res.clientId}`}
+                          className="font-bold text-slate-800 hover:text-indigo-600 cursor-pointer"
+                        >
+                          {res.customerName}
+                        </Link>
+                        <div className="text-slate-400 text-[11px] mt-0.5">
+                          {res.customerPhone}
                         </div>
                       </td>
 
-                      {/* 2. 날짜 및 시간 */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col font-mono text-xs text-slate-600">
-                          <span className="font-semibold text-slate-700">
-                            {resDate.toLocaleDateString("ko-KR", {
-                              month: "2-digit",
-                              day: "2-digit",
-                            })}
-                          </span>
-                          <span className="text-slate-400 mt-0.5 flex items-center text-[11px]">
-                            <Clock className="w-3 h-3 mr-0.5 text-indigo-400" />{" "}
-                            {resDate.toTimeString().substring(0, 5)}
-                          </span>
+                      <td className="px-6 py-4 font-mono">
+                        <div>
+                          {date.toLocaleDateString("ko-KR", {
+                            month: "2-digit",
+                            day: "2-digit",
+                          })}
+                        </div>
+                        <div className="text-slate-400 text-[11px] mt-0.5">
+                          {res.reservationTime.substring(11, 16)}
                         </div>
                       </td>
 
-                      {/* 3. 시술 메뉴 및 담당 디자이너 */}
+                      {/* 3. 담당자 섹션: 클릭 가능한 컴포넌트 버튼 레이어로 격상 */}
                       <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md w-fit">
+                        <div className="flex flex-col items-start space-y-1.5">
+                          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
                             {res.treatment === "FULL_DYE"
                               ? "전체 염색"
                               : res.treatment === "ROOT_DYE"
                                 ? "뿌리 염색"
                                 : res.treatment}
                           </span>
-                          <span className="text-xs text-slate-500 font-medium mt-1 flex items-center">
-                            <Scissors className="w-3 h-3 mr-1 text-slate-400" />{" "}
-                            {res.designerName}
-                          </span>
+
+                          {/* ⭕ 클릭 시 재배정 모달 트리거 바인딩 */}
+                          <button
+                            onClick={() =>
+                              openDesignerModal(
+                                res.reservationId,
+                                res.designers,
+                              )
+                            }
+                            className="flex flex-wrap gap-1 hover:ring-2 hover:ring-indigo-600/20 p-1 rounded-lg transition-all text-left bg-transparent cursor-pointer group"
+                            title="담당 디자이너 재배정"
+                          >
+                            {res.designers && res.designers.length > 0 ? (
+                              res.designers.map((designer) => (
+                                <span
+                                  key={designer.designerId}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-100 group-hover:bg-indigo-950 transition-colors"
+                                >
+                                  <Scissors className="w-2.5 h-2.5 mr-1 text-slate-400 transform -rotate-45" />
+                                  {designer.designerName}
+                                  <span className="text-slate-400 font-normal text-[9px] ml-1">
+                                    {designer.position}
+                                  </span>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="inline-flex items-center text-[10px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 border-dashed">
+                                <UserPlus className="w-2.5 h-2.5 mr-1" /> 담당자
+                                미지정 (추가)
+                              </span>
+                            )}
+                          </button>
                         </div>
                       </td>
 
-                      {/* 4. 시술 금액 */}
-                      <td className="px-6 py-4 font-bold text-slate-800 font-mono">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-800">
                         {res.totalAmount.toLocaleString()}원
                       </td>
 
-                      {/* 5. ⭕ DDL 기준에 부합하는 상태 변경 배지 디자인 */}
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            res.status === "CONFIRMED"
-                              ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                              : res.status === "COMPLETED"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : res.status === "NOSHOW"
-                                  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                  : "bg-rose-50 text-rose-700 border border-rose-100"
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            res.status === "COMPLETED"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : res.status === "CONFIRMED"
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "bg-amber-50 text-amber-700"
                           }`}
                         >
-                          {res.status === "CONFIRMED" ? (
-                            <>
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              예약 확정
-                            </>
-                          ) : res.status === "COMPLETED" ? (
-                            <>
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              시술 완료
-                            </>
-                          ) : res.status === "NOSHOW" ? (
-                            <>
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              노쇼 처리
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3 mr-1" />
-                              취소됨
-                            </>
-                          )}
+                          {res.status}
                         </span>
                       </td>
 
-                      {/* 6. ⭕ 제약조건에 최적화된 상태 변경 액션 제어반 */}
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center space-x-2">
-                          {res.status === "CONFIRMED" && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    res.reservationId,
-                                    "COMPLETED",
-                                  )
-                                }
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                              >
-                                시술 완료
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    res.reservationId,
-                                    "NOSHOW",
-                                  )
-                                }
-                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                              >
-                                노쇼 등록
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    res.reservationId,
-                                    "CANCELLED",
-                                  )
-                                }
-                                className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 text-slate-500 font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                              >
-                                취소
-                              </button>
-                            </>
-                          )}
-                          {(res.status === "CANCELLED" ||
-                            res.status === "COMPLETED" ||
-                            res.status === "NOSHOW") && (
-                            <span className="text-xs text-slate-300 font-medium font-mono select-none">
-                              - 마감 -
-                            </span>
-                          )}
-                        </div>
+                        {res.status === "COMPLETED" ? (
+                          <span className="text-slate-300 font-bold">
+                            - 마감 -
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              openHistoryModal(res.reservationId, res.clientId)
+                            }
+                            className="px-3 py-1.5 border border-slate-200 hover:border-indigo-500 text-slate-700 hover:text-indigo-600 rounded-xl font-bold cursor-pointer"
+                          >
+                            시술 완료
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 🎯 8. 담당 디자이너 실시간 변경 변경 (PATCH) 트리거 팝업 모달 */}
+      {isDesignerModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center">
+                <Scissors className="w-4 h-4 mr-1.5 text-indigo-600" /> 담당
+                디자이너 변경 배정
+              </h3>
+              <button
+                onClick={() => setIsDesignerModalOpen(false)}
+                className="text-slate-400 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleDesignerUpdateSubmit}>
+              <div className="p-5 space-y-3 max-h-[250px] overflow-y-auto">
+                <p className="text-[11px] text-slate-400 mb-2">
+                  이 예약 건에 투입될 디자이너를 선택하세요. (중복 선택 가능)
+                </p>
+                {shopDesigners.map((designer) => (
+                  <label
+                    key={designer.designerId}
+                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-slate-800">
+                        {designer.designerName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 bg-white border border-slate-200 px-1 py-0.5 rounded">
+                        {designer.position}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedDesignerIds.includes(
+                        designer.designerId,
+                      )}
+                      onChange={() =>
+                        handleDesignerCheckboxChange(designer.designerId)
+                      }
+                      className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDesignerModalOpen(false)}
+                  className="text-xs font-semibold text-slate-500 cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingDesigner}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 cursor-pointer flex items-center space-x-1"
+                >
+                  {updatingDesigner ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <span>배정 관계 업데이트</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 시술 기록 모달 */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">
+                시술완료 차트 기록
+              </h3>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="text-slate-400 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCompleteHistorySubmit}>
+              <div className="p-6">
+                <textarea
+                  required
+                  value={treatmentNote}
+                  onChange={(e) => setTreatmentNote(e.target.value)}
+                  placeholder="시술 메모를 입력하세요."
+                  rows={4}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-indigo-500 font-normal resize-none"
+                />
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="text-xs text-slate-500 cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingHistory}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  {submittingHistory ? "기록중..." : "완료 및 이력 저장"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,10 +1,9 @@
-// src/app/api/v1/reservations/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth } from "date-fns";
 
-// 1. 📅 매장별 이번 달 예약 목록 조회 (GET)
+// 1. 📅 매장별 이번 달 예약 목록 조회 (GET) - 디자이너 다중 배지 레이어 데이터 추가
 export async function GET(request: Request) {
   try {
     const decoded = verifyAuth(request);
@@ -34,7 +33,6 @@ export async function GET(request: Request) {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
-    // 🎯 영현님 스키마 맞춤 조회: client 필드(AppUser 모델)를 조인합니다.
     const reservations = await prisma.reservation.findMany({
       where: {
         shopId: shop.shopId,
@@ -44,7 +42,7 @@ export async function GET(request: Request) {
         },
       },
       include: {
-        client: true, // ⭕ AppUser 테이블 조인 (스키마의 client 관계 필드 사용)
+        client: true, // AppUser 테이블 조인
         designers: {
           include: {
             designer: true,
@@ -54,20 +52,32 @@ export async function GET(request: Request) {
       orderBy: { reservationTime: "asc" },
     });
 
-    // 프론트엔드 UI 컴포넌트 변수명(customerName, customerPhone)에 맞게 안전하게 포매팅
+    // 프론트엔드 UI 컴포넌트 변수명 및 디자이너 배지 시스템 레이어 스펙에 맞게 가공
     const formattedData = reservations.map((res) => {
       const primaryDesigner = res.designers[0]?.designer;
+
+      // 🎯 [추가] 배정된 모든 디자이너 목록을 배열 형태로 정제 (프론트엔드 배지 맵핑용)
+      const assignedDesigners = res.designers.map((d) => ({
+        designerId: d.designer.designerId,
+        designerName: d.designer.designerName,
+        position: d.designer.position,
+      }));
+
       return {
         reservationId: res.reservationId,
-        customerName: res.client?.name || "익명 회원", // client(AppUser)의 name 추출
-        customerPhone: res.client?.phone || "전화번호 없음", // client(AppUser)의 phone 추출
+        clientId: res.clientId,
+        customerName: res.client?.name || "미지정 고객",
+        customerPhone: res.client?.phone || "010-0000-0000",
         treatment: res.menuType,
         totalAmount: res.totalAmount,
         reservationTime: res.reservationTime.toISOString(),
         status: res.status,
+        // 기존 텍스트 포맷 유지 (하위 호환성 확보)
         designerName: primaryDesigner
-          ? `${primaryDesigner.designerName} ${primaryDesigner.position}`
-          : "미지정",
+          ? `${primaryDesigner.designerName} (${primaryDesigner.position})`
+          : "담당자 미정",
+        // 🎯 [추가] 고도화된 디자이너 관리 레이어 전용 배열 데이터 전달
+        designers: assignedDesigners,
       };
     });
 
@@ -87,7 +97,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. ➕ 신규 예약 등록 (POST)
+// 2. ➕ 신규 예약 등록 (POST) - 기존 안정화 로직 유지
 export async function POST(request: Request) {
   try {
     const decoded = verifyAuth(request);
@@ -138,7 +148,7 @@ export async function POST(request: Request) {
     const newReservation = await prisma.reservation.create({
       data: {
         shopId: shop.shopId,
-        clientId: Number(clientId), // ⭕ schema.prisma의 client_id 맵핑 필드에 매칭
+        clientId: Number(clientId),
         reservationTime: new Date(reservationTime),
         menuType,
         totalAmount: Number(totalAmount),
@@ -176,7 +186,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. 🔄 예약 상태 업데이트 (PATCH)
+// 3. 🔄 예약 상태 및 디자이너 배정 업데이트 (PATCH) - 재배정 레이어 연동 확장
 export async function PATCH(request: Request) {
   try {
     const decoded = verifyAuth(request);
@@ -188,11 +198,14 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { reservationId, status } = body;
+    const { reservationId, status, designerIds } = body; // 🎯 designerIds 추가 허용
 
-    if (!reservationId || !status) {
+    if (!reservationId) {
       return NextResponse.json(
-        { success: false, error: "필수 요청 데이터가 누락되었습니다." },
+        {
+          success: false,
+          error: "필수 요청 데이터(reservationId)가 누락되었습니다.",
+        },
         { status: 400 },
       );
     }
@@ -208,32 +221,54 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = await prisma.reservation.updateMany({
-      where: {
-        reservationId: parseInt(reservationId, 10),
-        shopId: shop.shopId,
-      },
-      data: { status },
-    });
+    const targetReservationId = parseInt(reservationId, 10);
 
-    if (updated.count === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "상태를 변경할 예약이 없거나 권한이 없습니다.",
+    // 🎯 디자이너 정보도 함께 변경 요청이 들어온 경우 트랜잭션 처리
+    await prisma.$transaction(async (tx) => {
+      // 1) 예약 상태나 기본 필드 업데이트 데이터 구성
+      const updateData: any = {};
+      if (status) updateData.status = status;
+
+      // 2) 디자이너 리스트가 넘어왔을 경우 관계 재설정 (기존 맵핑 초기화 후 새로 인서트)
+      if (designerIds && Array.isArray(designerIds)) {
+        // 우선 기존 해당 예약의 디자이너 매핑 관계 전부 삭제 (AssignedTo 테이블 기준)
+        // ※ 스키마 명칭에 맞춰 reservationId 기준으로 제거합니다.
+        await tx.assignedTo.deleteMany({
+          where: { reservationId: targetReservationId },
+        });
+
+        // 새로운 디자이너 연결 관계 주입
+        if (designerIds.length > 0) {
+          updateData.designers = {
+            create: designerIds.map((id: number) => ({
+              designerId: Number(id),
+            })),
+          };
+        }
+      }
+
+      // 3) 예약 메인 레코드 최종 업데이트 실행
+      await tx.reservation.update({
+        where: {
+          reservationId: targetReservationId,
+          shopId: shop.shopId, // 타인 매장 예약 수정 방어
         },
-        { status: 404 },
-      );
-    }
+        data: updateData,
+      });
+    });
 
     return NextResponse.json({
       success: true,
-      message: "예약 상태가 정상적으로 업데이트되었습니다.",
+      message:
+        "예약 상태 및 디자이너 배정 정보가 정상적으로 업데이트되었습니다.",
     });
-  } catch (error) {
-    console.error("🚨 예약 상태 변경 에러:", error);
+  } catch (error: any) {
+    console.error("🚨 예약 상태 및 담당자 재배정 에러:", error);
     return NextResponse.json(
-      { success: false, error: "서버 내부 오류가 발생했습니다." },
+      {
+        success: false,
+        error: error.message || "서버 내부 오류가 발생했습니다.",
+      },
       { status: 500 },
     );
   }
