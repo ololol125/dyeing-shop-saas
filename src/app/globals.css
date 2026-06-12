@@ -1,7 +1,1 @@
-/* src/app/globals.css */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* 💡 기존에 작성되어 있던 폰트나 커스텀 스타일이 있다면 이 아래에 위치하면 됩니다! */
+@import "tailwindcss";

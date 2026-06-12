@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -10,6 +10,8 @@ import {
   LogOut,
   Store,
   Sparkles,
+  Menu,
+  X,
 } from "lucide-react";
 
 export default function OwnerLayout({
@@ -18,8 +20,67 @@ export default function OwnerLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState("원장님"); // 기본값 세팅
+  const [userInitial, setUserInitial] = useState("M");
 
-  // 메뉴 아이템 구조화 및 액티브 상태 처리를 위한 배열
+  // 브라우저 쿠키에서 JWT 토큰을 읽어 유저 이름을 동적으로 가져오는 로직
+  useEffect(() => {
+    try {
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(";").shift();
+      };
+
+      const token = getCookie("token");
+      if (token) {
+        // JWT 토큰의 Payload(두 번째 세그먼트)를 파싱하여 복호화 진행
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join(""),
+        );
+
+        const decoded = JSON.parse(jsonPayload);
+        // 토큰 발급 시 저장된 payload 규격에 맞춰 이름(name) 추출
+        if (decoded && decoded.name) {
+          setUserName(decoded.name);
+          setUserInitial(decoded.name.charAt(0).toUpperCase());
+        } else if (decoded && decoded.email) {
+          // 이름이 없을 경우 이메일 앞자리 활용
+          const emailName = decoded.email.split("@")[0];
+          setUserName(emailName);
+          setUserInitial(emailName.charAt(0).toUpperCase());
+        }
+      }
+    } catch (error) {
+      console.error("토큰 프로필 가공 오류:", error);
+    }
+  }, [pathname]);
+
+  // 페이지 이동 시 모바일 메뉴 자동으로 닫기
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // 🔒 로그아웃 핸들러 기능 구현
+  const handleLogout = () => {
+    if (confirm("로그아웃 하시겠습니까?")) {
+      // 1. 브라우저의 인증 토큰 쿠키 만료 처리로 삭제
+      document.cookie =
+        "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict;";
+
+      // 2. 로그인 화면으로 강제 이동 및 세션 갱신
+      router.push("/login");
+      router.refresh();
+    }
+  };
+
   const menuItems = [
     {
       href: "/dashboard",
@@ -38,29 +99,54 @@ export default function OwnerLayout({
     },
   ];
 
+  const currentMenuLabel =
+    menuItems.find((item) =>
+      item.href === "/" ? pathname === "/" : pathname.startsWith(item.href),
+    )?.label || "대시보드";
+
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-800 antialiased font-sans">
-      {/* 🏢 왼쪽 고정 사이드바 */}
-      <aside className="w-64 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800 shadow-xl z-10">
+    <div className="flex h-screen bg-slate-50 text-slate-800 antialiased font-sans overflow-hidden">
+      {/* 📱 모바일 전용 사이드바 오버레이 배경 */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* 🏢 왼쪽 사이드바 */}
+      <aside
+        className={`fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800 shadow-xl z-50 lg:static lg:translate-x-0 transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div>
-          {/* 로고 영역: 트렌디한 그라데이션 포인트 */}
-          <div className="p-6 border-b border-slate-800 flex items-center space-x-3">
-            <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-md shadow-indigo-500/20">
-              <Store className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-1">
-                <span className="text-lg font-bold tracking-tight text-white">
-                  DyeingShop
-                </span>
-                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  SaaS
-                </span>
+          {/* 로고 영역 */}
+          <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-md shadow-indigo-500/20">
+                <Store className="w-5 h-5" />
               </div>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                헤어숍 파트너 오너십
-              </p>
+              <div>
+                <div className="flex items-center space-x-1">
+                  <span className="text-lg font-bold tracking-tight text-white">
+                    DyeingShop
+                  </span>
+                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    SaaS
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  헤어숍 파트너 오너십
+                </p>
+              </div>
             </div>
+            <button
+              className="lg:hidden p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* 네비게이션 메뉴 */}
@@ -70,7 +156,10 @@ export default function OwnerLayout({
             </p>
             <nav className="space-y-1.5">
               {menuItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href);
                 const Icon = item.icon;
 
                 return (
@@ -98,47 +187,58 @@ export default function OwnerLayout({
           </div>
         </div>
 
-        {/* 하단 프로필 및 로그아웃 푸터 */}
+        {/* 👤 하단 프로필 및 로그아웃 푸터 (동적 데이터 바인딩 완료) */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
           <div className="flex items-center space-x-3 px-2 py-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-              M
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner uppercase">
+              {userInitial}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-xs font-semibold text-slate-200 truncate">
-                마중 원장님
+                {userName} 원장님
               </p>
               <p className="text-[10px] text-slate-500 truncate">
                 Premium Member
               </p>
             </div>
           </div>
-          <button className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-medium border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-rose-400 hover:border-rose-950/30 transition-all duration-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-medium border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-rose-400 hover:border-rose-950/30 transition-all duration-200 cursor-pointer"
+          >
             <LogOut className="w-3.5 h-3.5" />
             <span>안전하게 로그아웃</span>
           </button>
         </div>
       </aside>
 
-      {/* 🖥️ 오른쪽 본문 스크롤 영역 */}
+      {/* 🖥️ 오른쪽 본문 영역 */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* 상단 미니 헤더바 (옵션: 검색이나 추가 알림 레이아웃용) */}
-        <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-8 flex items-center justify-between shadow-sm shrink-0">
-          <div className="flex items-center space-x-2 text-xs font-medium text-slate-500">
-            <span>워크스페이스</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-800 font-semibold">
-              {menuItems.find((item) => pathname === item.href)?.label ||
-                "대시보드"}
-            </span>
+        <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-4 lg:px-8 flex items-center justify-between shadow-sm shrink-0">
+          <div className="flex items-center space-x-3">
+            <button
+              className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2 text-xs font-medium text-slate-500">
+              <span className="hidden sm:inline">워크스페이스</span>
+              <span className="hidden sm:inline text-slate-300">/</span>
+              <span className="text-slate-800 font-semibold">
+                {currentMenuLabel}
+              </span>
+            </div>
           </div>
+
           <div className="flex items-center space-x-3 text-xs bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full text-indigo-700 font-semibold shadow-inner">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-            <span>정식 버전을 이용 중입니다</span>
+            <Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0" />
+            <span className="hidden xs:inline">정식 버전을 이용 중입니다</span>
+            <span className="xs:hidden">정식 버전</span>
           </div>
         </header>
 
-        {/* 실제 페이지 콘텐츠 렌더링 구역 */}
         <main className="flex-1 overflow-y-auto bg-slate-50/60 selection:bg-indigo-500/10">
           {children}
         </main>
