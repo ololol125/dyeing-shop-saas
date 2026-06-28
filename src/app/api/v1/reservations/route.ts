@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         reservationTime: new Date(reservationTime),
         menuType,
         totalAmount: Number(totalAmount),
-        status: "PENDING",
+        status: "CONFIRMED",
         designers:
           designerIds && designerIds.length > 0
             ? {
