@@ -62,8 +62,8 @@ model Reservation {
   menuType        String        @map("menu_type") @db.VarChar(50)
   totalAmount     Int           @map("total_amount")
   status          String        @default("CONFIRMED") @db.VarChar(20)
-  notes           String?       @db.Text 
   createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  notes           String?
   designers       AssignedTo[]
   histories       HairHistory[]
   client          AppUser?      @relation(fields: [clientId], references: [userId], onUpdate: NoAction)
