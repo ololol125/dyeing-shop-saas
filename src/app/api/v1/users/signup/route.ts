@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // 🟢 기존 import { PrismaClient } 지우고 이것으로 변경!
+export const dynamic = "force-dynamic"; // 🟢 Next.js가 빌드 타임에 이 코드를 미리 실행하지 않도록 강제 설정
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
 // 🔌 Prisma Client 인스턴스 생성

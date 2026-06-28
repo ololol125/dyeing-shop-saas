@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // 프로젝트의 공통 prisma 인스턴스 사용
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
 import { verifyAuth } from "@/lib/auth"; // 이미 만들어진 토큰 검증 유틸 사용
 
 /**
