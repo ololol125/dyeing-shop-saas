@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAuth } from "@/lib/auth"; // 🟢 기존 verifyAuth 함수 임포트
+import { verifyAuth } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 // 1. 소비자가 자신의 예약 내역 목록 조회 (GET)
 export async function GET(req: NextRequest) {
   try {
-    // 🟢 제공해주신 verifyAuth 함수를 사용하여 토큰 검증 및 유저 정보 추출
     const decoded = verifyAuth(req);
     if (!decoded) {
       return NextResponse.json(
@@ -17,23 +18,24 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 소비자의 ID(userId)로 필터링하여 예약 목록 조회 (매장 정보 포함)
+    // 🟢 schema.prisma 규칙 반영: 카멜 케이스 필드명 사용
     const reservations = await prisma.reservation.findMany({
       where: {
-        clientId: decoded.userId,
+        clientId: decoded.userId, // 스키마의 clientId와 매핑
       },
       include: {
         shop: {
           select: {
-            shopName: true,
-            baseAddress: true,
+            shopName: true, // 스키마의 shopName과 매핑
+            baseAddress: true, // 스키마의 baseAddress와 매핑
           },
         },
         designers: {
+          // 스키마의 designers 관계 필드와 정확히 일치
           include: {
             designer: {
               select: {
-                designerName: true,
+                designerName: true, // 스키마의 designerName과 매핑
                 position: true,
               },
             },
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: {
-        reservationTime: "desc",
+        reservationTime: "desc", // 스키마의 reservationTime과 매핑
       },
     });
 
@@ -61,7 +63,6 @@ export async function GET(req: NextRequest) {
 // 2. 소비자의 새로운 미용실 예약 신청 (POST)
 export async function POST(req: NextRequest) {
   try {
-    // 🟢 제공해주신 verifyAuth 함수를 사용하여 토큰 검증
     const decoded = verifyAuth(req);
     if (!decoded) {
       return NextResponse.json(
@@ -73,7 +74,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // FlutterFlow에서 보낸 Body 데이터 파싱
     const body = await req.json();
     const {
       shopId,
@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    // 필수 예약을 위한 유효성 검사 (totalAmount 포함)
     if (
       !shopId ||
       !designerId ||
@@ -93,18 +92,14 @@ export async function POST(req: NextRequest) {
       totalAmount === undefined
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "필수 예약 정보(매장, 디자이너, 시간, 메뉴, 결제금액)가 누락되었습니다.",
-        },
+        { success: false, error: "필수 예약 정보가 누락되었습니다." },
         { status: 400 },
       );
     }
 
-    // Prisma 트랜잭션을 사용하여 예약(Reservation)과 디자이너 매핑(AssignedTo)을 동시 생성
+    // 🟢 schema.prisma 규칙 반영: assignedTo 및 카멜 케이스 인스턴스 사용
     const newReservation = await prisma.$transaction(async (tx) => {
-      // 1. 예약 데이터 생성 (Prisma 스키마의 실제 매핑 필드명 준수 및 새 notes 필드 반영)
+      // 1. 예약 데이터 생성
       const reservation = await tx.reservation.create({
         data: {
           shopId: Number(shopId),
@@ -112,12 +107,12 @@ export async function POST(req: NextRequest) {
           reservationTime: new Date(reservationTime),
           menuType,
           totalAmount: Number(totalAmount),
-          status: "CONFIRMED", // 🟢 기본 스키마의 default 값이 CONFIRMED이므로 일치시킴
-          notes: notes || null, // 🟢 스키마에 새로 추가한 notes 필드 매핑
+          status: "CONFIRMED",
+          notes: notes || null,
         },
       });
 
-      // 2. 해당 예약에 디자이너 배정 (AssignedTo 다대다 매핑 테이블 관계 설정)
+      // 2. 해당 예약에 디자이너 배정 (AssignedTo 모델 연결 테이블 명세)
       await tx.assignedTo.create({
         data: {
           reservationId: reservation.reservationId,

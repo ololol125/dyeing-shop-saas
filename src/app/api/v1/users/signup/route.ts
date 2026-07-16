@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic"; // 🟢 Next.js가 빌드 타임에 이 코드를 미리 실행하지 않도록 강제 설정
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
