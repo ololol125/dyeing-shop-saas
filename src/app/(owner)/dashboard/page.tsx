@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   DollarSign,
   Users,
@@ -13,6 +14,8 @@ import {
   Trophy,
   User,
   Scissors,
+  Store,
+  ArrowRight,
 } from "lucide-react";
 
 // 백엔드 응답 규격 인터페이스 매칭
@@ -46,10 +49,12 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [noShop, setNoShop] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError("");
+    setNoShop(false);
 
     const getCookie = (name: string) => {
       const value = `; ${document.cookie}`;
@@ -67,15 +72,21 @@ export default function DashboardPage() {
         },
       });
 
-      if (!res.ok)
-        throw new Error("대시보드 실시간 데이터를 가져오지 못했습니다.");
-
       const resData = await res.json();
-      if (resData.success) {
-        setData(resData);
-      } else {
-        throw new Error(resData.error || "통계 데이터 파싱 실패");
+
+      if (res.status === 404) {
+        // 아직 매장을 등록하지 않은 신규 오너 계정
+        setNoShop(true);
+        return;
       }
+
+      if (!res.ok || !resData.success) {
+        throw new Error(
+          resData.error || "대시보드 실시간 데이터를 가져오지 못했습니다.",
+        );
+      }
+
+      setData(resData);
     } catch (err: any) {
       console.error(err);
       setError(err.message);
@@ -95,6 +106,31 @@ export default function DashboardPage() {
         <p className="text-sm text-slate-500 mt-4 font-medium">
           매장 실시간 통계 집계 중...
         </p>
+      </div>
+    );
+  }
+
+  if (noShop) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+            <Store className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            아직 등록된 매장이 없어요
+          </h3>
+          <p className="text-xs text-slate-400 mt-1.5">
+            매장 정보를 먼저 등록해야 예약과 디자이너를 관리할 수 있습니다.
+          </p>
+          <Link
+            href="/shop/register"
+            className="mt-5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center mx-auto space-x-1.5 transition-colors"
+          >
+            <span>매장 등록하러 가기</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
     );
   }
