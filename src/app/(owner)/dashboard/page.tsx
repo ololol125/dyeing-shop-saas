@@ -102,7 +102,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
         <p className="text-sm text-slate-500 mt-4 font-medium">
           매장 실시간 통계 집계 중...
         </p>
@@ -114,7 +114,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto mb-4">
             <Store className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-slate-800">
@@ -125,7 +125,7 @@ export default function DashboardPage() {
           </p>
           <Link
             href="/shop/register"
-            className="mt-5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center mx-auto space-x-1.5 transition-colors"
+            className="mt-5 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center mx-auto space-x-1.5 transition-colors"
           >
             <span>매장 등록하러 가기</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <p className="text-xs text-rose-400 mt-1">{error}</p>
           <button
             onClick={fetchDashboardData}
-            className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold cursor-pointer flex items-center mx-auto space-x-1"
+            className="mt-5 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold cursor-pointer flex items-center mx-auto space-x-1"
           >
             <RefreshCw className="w-3 h-3" /> <span>다시 시도</span>
           </button>
@@ -205,14 +205,14 @@ export default function DashboardPage() {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               이번 달 방문 손님
             </span>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <h2 className="text-2xl font-mono font-bold text-slate-900">
             {summary.activeCustomers}명
           </h2>
-          <p className="text-xs text-indigo-600 mt-2 flex items-center font-medium">
+          <p className="text-xs text-violet-600 mt-2 flex items-center font-medium">
             <TrendingUp className="w-3.5 h-3.5 mr-1" /> 전월 대비 +
             {summary.customerGrowth}%
           </p>
@@ -297,7 +297,7 @@ export default function DashboardPage() {
                         {res.customerName}
                       </td>
                       <td className="py-3.5">
-                        <span className="text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded mr-2">
+                        <span className="text-violet-600 font-bold bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded mr-2">
                           {res.treatment}
                         </span>
                         <span className="font-mono text-slate-400">
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                             res.status === "COMPLETED"
                               ? "bg-slate-100 text-slate-600"
                               : res.status === "CONFIRMED"
-                                ? "bg-indigo-50 text-indigo-700"
+                                ? "bg-violet-50 text-violet-700"
                                 : res.status === "NOSHOW"
                                   ? "bg-amber-50 text-amber-700"
                                   : "bg-rose-50 text-rose-700"

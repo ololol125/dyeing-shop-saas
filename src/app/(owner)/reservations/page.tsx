@@ -195,7 +195,7 @@ export default function ReservationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
         <p className="text-sm text-slate-500 mt-4 font-medium">
           예약 데이터 정렬 중...
         </p>
@@ -249,7 +249,7 @@ export default function ReservationsPage() {
                       <td className="px-6 py-4">
                         <Link
                           href={`/clients/${res.clientId}`}
-                          className="font-bold text-slate-800 hover:text-indigo-600 cursor-pointer"
+                          className="font-bold text-slate-800 hover:text-violet-600 cursor-pointer"
                         >
                           {res.customerName}
                         </Link>
@@ -273,7 +273,7 @@ export default function ReservationsPage() {
                       {/* 3. 담당자 섹션: 클릭 가능한 컴포넌트 버튼 레이어로 격상 */}
                       <td className="px-6 py-4">
                         <div className="flex flex-col items-start space-y-1.5">
-                          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
                             {res.treatment === "FULL_DYE"
                               ? "전체 염색"
                               : res.treatment === "ROOT_DYE"
@@ -289,14 +289,14 @@ export default function ReservationsPage() {
                                 res.designers,
                               )
                             }
-                            className="flex flex-wrap gap-1 hover:ring-2 hover:ring-indigo-600/20 p-1 rounded-lg transition-all text-left bg-transparent cursor-pointer group"
+                            className="flex flex-wrap gap-1 hover:ring-2 hover:ring-violet-600/20 p-1 rounded-lg transition-all text-left bg-transparent cursor-pointer group"
                             title="담당 디자이너 재배정"
                           >
                             {res.designers && res.designers.length > 0 ? (
                               res.designers.map((designer) => (
                                 <span
                                   key={designer.designerId}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-100 group-hover:bg-indigo-950 transition-colors"
+                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-100 group-hover:bg-violet-950 transition-colors"
                                 >
                                   <Scissors className="w-2.5 h-2.5 mr-1 text-slate-400 transform -rotate-45" />
                                   {designer.designerName}
@@ -325,7 +325,7 @@ export default function ReservationsPage() {
                             res.status === "COMPLETED"
                               ? "bg-emerald-50 text-emerald-700"
                               : res.status === "CONFIRMED"
-                                ? "bg-indigo-50 text-indigo-700"
+                                ? "bg-violet-50 text-violet-700"
                                 : "bg-amber-50 text-amber-700"
                           }`}
                         >
@@ -343,7 +343,7 @@ export default function ReservationsPage() {
                             onClick={() =>
                               openHistoryModal(res.reservationId, res.clientId)
                             }
-                            className="px-3 py-1.5 border border-slate-200 hover:border-indigo-500 text-slate-700 hover:text-indigo-600 rounded-xl font-bold cursor-pointer"
+                            className="px-3 py-1.5 border border-slate-200 hover:border-violet-500 text-slate-700 hover:text-violet-600 rounded-xl font-bold cursor-pointer"
                           >
                             시술 완료
                           </button>
@@ -364,7 +364,7 @@ export default function ReservationsPage() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full overflow-hidden">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center">
-                <Scissors className="w-4 h-4 mr-1.5 text-indigo-600" /> 담당
+                <Scissors className="w-4 h-4 mr-1.5 text-violet-600" /> 담당
                 디자이너 변경 배정
               </h3>
               <button
@@ -401,7 +401,7 @@ export default function ReservationsPage() {
                       onChange={() =>
                         handleDesignerCheckboxChange(designer.designerId)
                       }
-                      className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                      className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
                     />
                   </label>
                 ))}
@@ -418,7 +418,7 @@ export default function ReservationsPage() {
                 <button
                   type="submit"
                   disabled={updatingDesigner}
-                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 cursor-pointer flex items-center space-x-1"
+                  className="px-4 py-2 bg-violet-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 cursor-pointer flex items-center space-x-1"
                 >
                   {updatingDesigner ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -455,7 +455,7 @@ export default function ReservationsPage() {
                   onChange={(e) => setTreatmentNote(e.target.value)}
                   placeholder="시술 메모를 입력하세요."
                   rows={4}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-indigo-500 font-normal resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-violet-500 font-normal resize-none"
                 />
               </div>
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
@@ -469,7 +469,7 @@ export default function ReservationsPage() {
                 <button
                   type="submit"
                   disabled={submittingHistory}
-                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-violet-600 text-white text-xs font-semibold rounded-xl cursor-pointer"
                 >
                   {submittingHistory ? "기록중..." : "완료 및 이력 저장"}
                 </button>

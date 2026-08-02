@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   LayoutDashboard,
   CalendarDays,
   UserSquare2,
   LogOut,
-  Store,
   Sparkles,
   Menu,
   X,
@@ -124,15 +124,21 @@ export default function OwnerLayout({
           {/* 로고 영역 */}
           <div className="p-6 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-md shadow-indigo-500/20">
-                <Store className="w-5 h-5" />
+              <div className="relative w-9 h-9 p-2 bg-violet-600 rounded-xl text-white shadow-md shadow-violet-500/20 overflow-hidden">
+                <Image
+                  src="/icon01.png"
+                  alt="염색온"
+                  fill
+                  priority
+                  className="object-cover"
+                />
               </div>
               <div>
                 <div className="flex items-center space-x-1">
                   <span className="text-lg font-bold tracking-tight text-white">
-                    DyeingShop
+                    염색온
                   </span>
-                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 border border-violet-500/30">
                     SaaS
                   </span>
                 </div>
@@ -168,7 +174,7 @@ export default function OwnerLayout({
                     href={item.href}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group ${
                       isActive
-                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/15"
+                        ? "bg-violet-600 text-white shadow-lg shadow-violet-600/15"
                         : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                     }`}
                   >
@@ -176,7 +182,7 @@ export default function OwnerLayout({
                       className={`w-4 h-4 transition-transform duration-200 group-hover:scale-105 ${
                         isActive
                           ? "text-white"
-                          : "text-slate-400 group-hover:text-indigo-400"
+                          : "text-slate-400 group-hover:text-violet-400"
                       }`}
                     />
                     <span>{item.label}</span>
@@ -190,7 +196,7 @@ export default function OwnerLayout({
         {/* 👤 하단 프로필 및 로그아웃 푸터 (동적 데이터 바인딩 완료) */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
           <div className="flex items-center space-x-3 px-2 py-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner uppercase">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner uppercase">
               {userInitial}
             </div>
             <div className="flex-1 overflow-hidden">
@@ -232,14 +238,14 @@ export default function OwnerLayout({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 text-xs bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full text-indigo-700 font-semibold shadow-inner">
+          <div className="flex items-center space-x-3 text-xs bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-full text-violet-700 font-semibold shadow-inner">
             <Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0" />
             <span className="hidden xs:inline">정식 버전을 이용 중입니다</span>
             <span className="xs:hidden">정식 버전</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/60 selection:bg-indigo-500/10">
+        <main className="flex-1 overflow-y-auto bg-slate-50/60 selection:bg-violet-500/10">
           {children}
         </main>
       </div>

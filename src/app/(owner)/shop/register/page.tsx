@@ -74,7 +74,7 @@ export default function ShopRegisterPage() {
     <div className="min-h-screen bg-slate-50/30 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans antialiased text-slate-800">
       <div className="sm:mx-auto w-full max-w-lg">
         <div className="flex justify-center items-center space-x-2.5">
-          <div className="p-2.5 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-600/20">
+          <div className="p-2.5 bg-violet-600 rounded-2xl text-white shadow-lg shadow-violet-600/20">
             <Store className="w-6 h-6" />
           </div>
         </div>
@@ -111,7 +111,7 @@ export default function ShopRegisterPage() {
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   placeholder="영현 바버샵"
-                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                 />
               </div>
             </div>
@@ -131,7 +131,7 @@ export default function ShopRegisterPage() {
                   value={businessNumber}
                   onChange={(e) => setBusinessNumber(e.target.value)}
                   placeholder="123-45-67890"
-                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                 />
               </div>
             </div>
@@ -151,7 +151,7 @@ export default function ShopRegisterPage() {
                   value={baseAddress}
                   onChange={(e) => setBaseAddress(e.target.value)}
                   placeholder="서울특별시 관악구 신림동 1554-29"
-                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                 />
               </div>
             </div>
@@ -173,7 +173,7 @@ export default function ShopRegisterPage() {
                     value={latitude}
                     onChange={(e) => setLatitude(e.target.value)}
                     placeholder="37.4750"
-                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                   />
                 </div>
               </div>
@@ -188,7 +188,7 @@ export default function ShopRegisterPage() {
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
                   placeholder="126.9300"
-                  className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                 />
               </div>
             </div>
@@ -213,7 +213,7 @@ export default function ShopRegisterPage() {
                     value={rootPrice}
                     onChange={(e) => setRootPrice(e.target.value)}
                     placeholder="6000"
-                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                   />
                 </div>
               </div>
@@ -227,7 +227,7 @@ export default function ShopRegisterPage() {
                   value={fullPrice}
                   onChange={(e) => setFullPrice(e.target.value)}
                   placeholder="10000"
-                  className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                  className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                 />
               </div>
             </div>
@@ -237,7 +237,7 @@ export default function ShopRegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-xl shadow-md shadow-indigo-600/10 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center items-center space-x-2 py-3 px-4 border border-transparent rounded-xl shadow-md shadow-violet-600/10 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

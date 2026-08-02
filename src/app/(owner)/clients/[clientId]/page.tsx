@@ -80,7 +80,7 @@ export default function ClientHistoryPage({
             setClient({
               name: fetchedData[0].customerName,
               phone: fetchedData[0].customerPhone,
-              email: "DyeingShop Premium 회원",
+              email: "염색온 Premium 회원",
             });
           } else {
             setClient({
@@ -106,7 +106,7 @@ export default function ClientHistoryPage({
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
         <p className="text-sm text-slate-500 mt-4 font-medium">
           고객 정밀 차트를 분석 중입니다...
         </p>
@@ -127,7 +127,7 @@ export default function ClientHistoryPage({
           </p>
           <button
             onClick={() => router.back()}
-            className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold cursor-pointer"
+            className="mt-5 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold cursor-pointer"
           >
             이전 화면으로
           </button>
@@ -150,7 +150,7 @@ export default function ClientHistoryPage({
       {/* 👤 1. 상단 고객 요약 정보 프로필 카드 */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white flex items-center justify-center shadow-lg shadow-indigo-600/10">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-violet-700 text-white flex items-center justify-center shadow-lg shadow-violet-600/10">
             <User className="w-6 h-6" />
           </div>
           <div>
@@ -192,13 +192,13 @@ export default function ClientHistoryPage({
           </p>
         </div>
       ) : (
-        <div className="relative border-l-2 border-indigo-100 ml-4 space-y-8 pb-4">
+        <div className="relative border-l-2 border-violet-100 ml-4 space-y-8 pb-4">
           {histories.map((item) => {
             const date = new Date(item.treatmentDate);
             return (
               <div key={item.historyId} className="relative pl-6">
                 {/* 타임라인 포인트 그래픽 노드 */}
-                <span className="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full bg-indigo-600 ring-4 ring-white shadow-sm" />
+                <span className="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full bg-violet-600 ring-4 ring-white shadow-sm" />
 
                 {/* 시술 상세 정보 블록 카드 */}
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md">
@@ -212,7 +212,7 @@ export default function ClientHistoryPage({
                           day: "2-digit",
                         })}
                       </span>
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                      <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">
                         {item.menuType === "FULL_DYE"
                           ? "전체 염색"
                           : item.menuType === "ROOT_DYE"

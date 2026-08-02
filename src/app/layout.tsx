@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import React from "react";
-import "./globals.css"; // 👈 이 구문이 반드시 포함되어 있어야 합니다!
+import "./globals.css"; 
 
 export default function RootLayout({
   children,

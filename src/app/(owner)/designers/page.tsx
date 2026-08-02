@@ -179,7 +179,7 @@ export default function DesignersPage() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-indigo-600/10 active:scale-98 cursor-pointer"
+          className="flex items-center justify-center space-x-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-violet-600/10 active:scale-98 cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
           <span>신규 디자이너 등록</span>
@@ -190,7 +190,7 @@ export default function DesignersPage() {
       {loading ? (
         // 로딩 스피너 구역
         <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
           <p className="text-xs text-slate-400 mt-3 font-medium">
             디자이너 명단을 매핑하는 중...
           </p>
@@ -303,7 +303,7 @@ export default function DesignersPage() {
                             designer.isActive !== false,
                           )
                         }
-                        className="text-indigo-600 hover:text-indigo-900 transition-colors cursor-pointer"
+                        className="text-violet-600 hover:text-violet-900 transition-colors cursor-pointer"
                       >
                         {designer.isActive !== false
                           ? "예약 중지하기"
@@ -332,7 +332,7 @@ export default function DesignersPage() {
             {/* 모달 헤더 */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
                   <UserPlus className="w-4 h-4" />
                 </div>
                 <h3 className="font-bold text-slate-900">신규 디자이너 등록</h3>
@@ -359,7 +359,7 @@ export default function DesignersPage() {
                     value={newDesignerName}
                     onChange={(e) => setNewDesignerName(e.target.value)}
                     placeholder="예: 김선우"
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
                   />
                 </div>
 
@@ -371,7 +371,7 @@ export default function DesignersPage() {
                   <select
                     value={newPosition}
                     onChange={(e) => setNewPosition(e.target.value)}
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all text-slate-700"
+                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all text-slate-700"
                   >
                     <option value="원장">원장 (Director)</option>
                     <option value="부원장">부원장</option>
@@ -395,7 +395,7 @@ export default function DesignersPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/10 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex items-center space-x-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-md shadow-violet-600/10 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
