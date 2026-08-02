@@ -20,6 +20,9 @@ export async function GET() {
         longitude: true,
         rootPrice: true,
         fullPrice: true,
+        description: true,
+        phone: true,
+        businessHours: true,
       },
     });
 
@@ -137,6 +140,82 @@ export async function POST(request: Request) {
     }
 
     console.error("🚨 매장 등록 API 에러:", error);
+    return NextResponse.json(
+      { success: false, error: "서버 내부 오류가 발생했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * ✏️ 오너 본인 매장 정보 수정 (PATCH, 로그인 필요)
+ * 소비자 앱에 노출되는 매장명/주소/좌표/가격/소개글/전화번호/영업시간을 수정합니다.
+ */
+export async function PATCH(request: Request) {
+  try {
+    const user = verifyAuth(request);
+    if (!user || !user.userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "인증 정보가 유효하지 않습니다. 로그인이 필요합니다.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const existingShop = await prisma.shop.findFirst({
+      where: { ownerId: user.userId },
+      select: { shopId: true },
+    });
+
+    if (!existingShop) {
+      return NextResponse.json(
+        { success: false, error: "등록된 매장이 없습니다. 매장을 먼저 등록해 주세요." },
+        { status: 404 },
+      );
+    }
+
+    const body = await request.json();
+    const {
+      shopName,
+      baseAddress,
+      latitude,
+      longitude,
+      rootPrice,
+      fullPrice,
+      description,
+      phone,
+      businessHours,
+    } = body;
+
+    const updatedShop = await prisma.shop.update({
+      where: { shopId: existingShop.shopId },
+      data: {
+        shopName: shopName ?? undefined,
+        baseAddress: baseAddress ?? undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+        rootPrice: rootPrice ?? undefined,
+        fullPrice: fullPrice ?? undefined,
+        description: description !== undefined ? description || null : undefined,
+        phone: phone !== undefined ? phone || null : undefined,
+        businessHours:
+          businessHours !== undefined ? businessHours || null : undefined,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "매장 정보가 수정되었습니다.",
+      data: {
+        ...updatedShop,
+        latitude: Number(updatedShop.latitude),
+        longitude: Number(updatedShop.longitude),
+      },
+    });
+  } catch (error) {
+    console.error("🚨 매장 정보 수정 API 에러:", error);
     return NextResponse.json(
       { success: false, error: "서버 내부 오류가 발생했습니다." },
       { status: 500 },

@@ -12,6 +12,8 @@ import {
   Sparkles,
   Menu,
   X,
+  Newspaper,
+  Store,
 } from "lucide-react";
 
 export default function OwnerLayout({
@@ -96,6 +98,16 @@ export default function OwnerLayout({
       href: "/designers",
       label: "디자이너 설정",
       icon: UserSquare2,
+    },
+    {
+      href: "/shop",
+      label: "매장 정보 관리",
+      icon: Store,
+    },
+    {
+      href: "/posts",
+      label: "게시물 관리",
+      icon: Newspaper,
     },
   ];
 

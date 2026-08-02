@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
   // 🔥 외부 앱(Flutter 등)에서 API를 호출할 수 있도록 CORS 헤더 허용 설정
   async headers() {
     return [

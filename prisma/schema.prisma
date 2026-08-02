@@ -31,14 +31,32 @@ model Shop {
   rootPrice      Int            @default(0) @map("root_price")
   fullPrice      Int            @default(0) @map("full_price")
   businessNumber String         @unique @map("business_number") @db.VarChar(100)
+  description    String?        @db.Text
+  phone          String?        @db.VarChar(50)
+  businessHours  String?        @map("business_hours") @db.VarChar(255)
   createdAt      DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
   designers      Designer[]
   histories      HairHistory[]
+  posts          Post[]
   reservations   Reservation[]
   owner          AppUser?       @relation(fields: [ownerId], references: [userId], onDelete: Cascade, onUpdate: NoAction)
   subscriptions  Subscription[]
 
   @@map("shop")
+}
+
+model Post {
+  postId    Int       @id @default(autoincrement()) @map("post_id")
+  shopId    Int       @map("shop_id")
+  title     String    @db.VarChar(255)
+  content   String?   @db.Text
+  imageUrl  String?   @map("image_url") @db.Text
+  status    String    @default("PUBLISHED") @db.VarChar(20)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  shop      Shop      @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("post")
 }
 
 model Designer {
