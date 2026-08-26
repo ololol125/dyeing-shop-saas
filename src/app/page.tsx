@@ -427,9 +427,23 @@ export default function Home() {
             <span className="text-sm font-bold text-slate-700">염색온</span>
             <span className="text-xs text-slate-400">SaaS</span>
           </div>
-          <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} 염색온. All rights reserved.
-          </p>
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/terms"
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              이용약관
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors underline underline-offset-2"
+            >
+              개인정보처리방침
+            </Link>
+            <p className="text-xs text-slate-400">
+              © {new Date().getFullYear()} 염색온. All rights reserved.
+            </p>
+          </div>
         </div>
 
         {/* 사업자 정보 (전자상거래법 필수 노출 사항) */}
