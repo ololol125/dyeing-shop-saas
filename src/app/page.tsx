@@ -420,7 +420,7 @@ export default function Home() {
 
       {/* 푸터 */}
       <footer className="border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-6 pt-10 pb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-violet-600 rounded-lg text-white">
             </div>
@@ -429,6 +429,17 @@ export default function Home() {
           </div>
           <p className="text-xs text-slate-400">
             © {new Date().getFullYear()} 염색온. All rights reserved.
+          </p>
+        </div>
+
+        {/* 사업자 정보 (전자상거래법 필수 노출 사항) */}
+        <div className="max-w-6xl mx-auto px-6 pb-8 pt-6 border-t border-slate-100">
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            상호명: 주식회사 씨엘엠티 · 대표자: 채영훈 · 사업자등록번호:
+            164-86-01874
+            <br />
+            사업장주소: 대구광역시 북구 대학로15길 5, 3층 · 전화번호:
+            053-957-6388
           </p>
         </div>
       </footer>
