@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -15,6 +14,7 @@ import {
   Store,
 } from "lucide-react";
 import { getCookie } from "@/lib/client-utils";
+import { Logo } from "@/components/brand/logo";
 
 const menuItems = [
   { href: "/dashboard", label: "오늘 한눈에 보기", icon: LayoutDashboard },
@@ -92,14 +92,8 @@ export default function OwnerLayout({
         <div>
           {/* 로고 */}
           <div className="flex items-center justify-between border-b border-line px-5 py-5">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="relative h-11 w-11 overflow-hidden rounded-control bg-brand-soft">
-                <Image src="/icon01.png" alt="" fill priority className="object-cover" />
-              </div>
-              <div>
-                <p className="text-heading font-bold leading-tight text-ink">염색온</p>
-                <p className="text-caption text-ink-sub">사장님 매장 관리</p>
-              </div>
+            <Link href="/dashboard" aria-label="오늘 한눈에 보기로 이동">
+              <Logo size={44} subtitle="사장님 매장 관리" />
             </Link>
             <button
               className="inline-flex min-h-touch cursor-pointer items-center gap-1 rounded-control px-3 text-body font-semibold text-ink-sub hover:bg-canvas lg:hidden"
