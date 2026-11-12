@@ -1,19 +1,37 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  User,
   Phone,
-  Calendar,
-  Clock,
   Scissors,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  FileText,
+  CheckCircle2,
   UserPlus,
+  UserCog,
+  CalendarDays,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  LoadingState,
+  Modal,
+  PageContainer,
+  PageHeader,
+  ReservationStatusBadge,
+  inputClass,
+} from "@/components/owner/ui";
+import {
+  authHeaders,
+  errorMessage,
+  formatKstDate,
+  formatKstTime,
+  formatWon,
+  menuLabel,
+} from "@/lib/client-utils";
 
 interface DesignerBadge {
   designerId: number;
@@ -34,58 +52,56 @@ interface Reservation {
   designers: DesignerBadge[];
 }
 
+type Filter = "UPCOMING" | "DONE" | "ALL";
+
+const filters: { key: Filter; label: string }[] = [
+  { key: "UPCOMING", label: "방문 예정" },
+  { key: "DONE", label: "완료·취소" },
+  { key: "ALL", label: "이번 달 전체" },
+];
+
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [shopDesigners, setShopDesigners] = useState<DesignerBadge[]>([]); // 🎯 매장 전체 디자이너 풀
+  const [shopDesigners, setShopDesigners] = useState<DesignerBadge[]>([]); // 매장 전체 디자이너
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<Filter>("UPCOMING");
 
-  // 시술 완료 모달 상태
+  // 시술 완료 팝업 상태
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedResId, setSelectedResId] = useState<number | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [treatmentNote, setTreatmentNote] = useState("");
   const [submittingHistory, setSubmittingHistory] = useState(false);
 
-  // 🎯 디자이너 변경 모달 상태
+  // 담당 선생님 변경 팝업 상태
   const [isDesignerModalOpen, setIsDesignerModalOpen] = useState(false);
   const [targetResId, setTargetResId] = useState<number | null>(null);
   const [selectedDesignerIds, setSelectedDesignerIds] = useState<number[]>([]);
   const [updatingDesigner, setUpdatingDesigner] = useState(false);
 
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-  };
-
-  // 데이터 로드 엔진 (예약 목록 + 매장 디자이너 풀 동시 로드)
+  // 예약 목록 + 매장 디자이너 목록 함께 불러오기
   const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
-      const token = getCookie("token");
-      const headers = {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-
-      // 1. 예약 목록 fetch
-      const resRes = await fetch("/api/v1/reservations", { headers });
+      const headers = authHeaders();
+      const [resRes, desRes] = await Promise.all([
+        fetch("/api/v1/reservations", { headers }),
+        fetch("/api/v1/designers", { headers }),
+      ]);
       const resData = await resRes.json();
-
-      // 2. 디자이너 목록 fetch
-      const desRes = await fetch("/api/v1/designers", { headers });
       const desData = await desRes.json();
 
       if (resData.success && desData.success) {
         setReservations(resData.data || []);
         setShopDesigners(desData.data || []);
       } else {
-        throw new Error("데이터를 연동하는 데 실패했습니다.");
+        throw new Error(resData.error || desData.error || "예약 정보를 불러오지 못했습니다.");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -95,22 +111,16 @@ export default function ReservationsPage() {
     fetchData();
   }, []);
 
-  // 🎯 담당 디자이너 변경 처리 제출 (PATCH 호출 구역!)
+  // 담당 선생님 변경 저장 (PATCH)
   const handleDesignerUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetResId) return;
 
     setUpdatingDesigner(true);
     try {
-      const token = getCookie("token");
-
-      // 🚀 백엔드 고도화용 PATCH API 정밀 타격
       const res = await fetch("/api/v1/reservations", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           reservationId: targetResId,
           designerIds: selectedDesignerIds, // 체크된 디자이너 ID 배열 전송
@@ -119,31 +129,26 @@ export default function ReservationsPage() {
 
       const resData = await res.json();
       if (!res.ok || !resData.success)
-        throw new Error(resData.error || "변경 실패");
+        throw new Error(resData.error || "담당 선생님을 바꾸지 못했습니다.");
 
       setIsDesignerModalOpen(false);
       setTargetResId(null);
-      fetchData(); // 🔄 목록 새로고침으로 실시간 배지 동기화
-      alert("담당 디자이너 배정이 성공적으로 변경되었습니다!");
-    } catch (err: any) {
-      alert(err.message);
+      fetchData();
+      alert("담당 선생님을 바꿨어요.");
+    } catch (err) {
+      alert(errorMessage(err));
     } finally {
       setUpdatingDesigner(false);
     }
   };
 
-  // 디자이너 모달 오픈 핸들러
-  const openDesignerModal = (
-    resId: number,
-    currentDesigners: DesignerBadge[],
-  ) => {
+  const openDesignerModal = (resId: number, currentDesigners: DesignerBadge[]) => {
     setTargetResId(resId);
-    // 현재 배정되어 있는 디자이너 ID들로 체크박스 초기값 매핑
+    // 현재 배정된 선생님을 미리 체크
     setSelectedDesignerIds(currentDesigners.map((d) => d.designerId));
     setIsDesignerModalOpen(true);
   };
 
-  // 시술 완료 모달 열기
   const openHistoryModal = (reservationId: number, clientId: number) => {
     setSelectedResId(Number(reservationId));
     setSelectedClientId(Number(clientId));
@@ -151,20 +156,16 @@ export default function ReservationsPage() {
     setIsHistoryModalOpen(true);
   };
 
-  // 시술 완료 제출 (POST)
+  // 시술 완료 저장 (POST)
   const handleCompleteHistorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedResId || !selectedClientId) return;
 
     setSubmittingHistory(true);
     try {
-      const token = getCookie("token");
       const res = await fetch("/api/v1/histories", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           reservationId: selectedResId,
           clientId: selectedClientId,
@@ -173,317 +174,263 @@ export default function ReservationsPage() {
       });
 
       const resData = await res.json();
-      if (!res.ok || !resData.success) throw new Error(resData.error || "실패");
+      if (!res.ok || !resData.success) throw new Error(resData.error || "시술 완료를 저장하지 못했습니다.");
 
       setIsHistoryModalOpen(false);
       fetchData();
-      alert("시술 마감 및 차트 기록 완료!");
-    } catch (err: any) {
-      alert(err.message);
+      alert("시술 완료와 메모를 저장했어요.");
+    } catch (err) {
+      alert(errorMessage(err));
     } finally {
       setSubmittingHistory(false);
     }
   };
 
-  // 체크박스 토글 핸들러
   const handleDesignerCheckboxChange = (id: number) => {
     setSelectedDesignerIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
-        <p className="text-sm text-slate-500 mt-4 font-medium">
-          예약 데이터 정렬 중...
-        </p>
-      </div>
+  const closeDesignerModal = useCallback(() => setIsDesignerModalOpen(false), []);
+  const closeHistoryModal = useCallback(() => setIsHistoryModalOpen(false), []);
+
+  const visible = reservations
+    .filter((r) =>
+      filter === "ALL" ? true : filter === "UPCOMING" ? r.status === "CONFIRMED" : r.status !== "CONFIRMED",
+    )
+    .sort((a, b) =>
+      // 방문 예정은 가까운 순, 나머지는 최근 순
+      filter === "UPCOMING"
+        ? a.reservationTime.localeCompare(b.reservationTime)
+        : b.reservationTime.localeCompare(a.reservationTime),
     );
-  }
+
+  const countOf = (key: Filter) =>
+    reservations.filter((r) =>
+      key === "ALL" ? true : key === "UPCOMING" ? r.status === "CONFIRMED" : r.status !== "CONFIRMED",
+    ).length;
 
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800 bg-slate-50/30 min-h-screen">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          예약 현황 관리
-        </h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          매장 담당 디자이너 배지를 클릭하여 실시간으로 담당자를 변경할 수
-          있습니다.
-        </p>
+    <PageContainer>
+      <PageHeader
+        title="예약 관리"
+        description="이번 달 예약을 확인하고, 시술이 끝나면 '시술 완료'를 눌러 주세요."
+        action={
+          <Button variant="secondary" icon={RefreshCw} onClick={fetchData}>
+            새로고침
+          </Button>
+        }
+      />
+
+      {/* 보기 선택 */}
+      <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="예약 보기">
+        {filters.map((f) => {
+          const active = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilter(f.key)}
+              className={`inline-flex min-h-touch cursor-pointer items-center gap-2 rounded-control px-5 text-body font-bold transition-colors ${
+                active
+                  ? "bg-brand text-white"
+                  : "border-[1.5px] border-line-strong bg-surface text-ink hover:bg-brand-soft"
+              }`}
+            >
+              {active && <CheckCircle2 className="h-5 w-5" aria-hidden />}
+              {f.label}
+              <span className={`rounded-full px-2 text-caption ${active ? "bg-white/20" : "bg-canvas"}`}>
+                {loading ? "-" : countOf(f.key)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                <th className="px-6 py-4">고객 정보</th>
-                <th className="px-6 py-4">예약 시간</th>
-                <th className="px-6 py-4">시술 메뉴 / 담당자 (클릭 시 변경)</th>
-                <th className="px-6 py-4">시술 금액</th>
-                <th className="px-6 py-4">현재 상태</th>
-                <th className="px-6 py-4 text-center">매장 실시간 액션</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-600 font-medium">
-              {reservations.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-12 text-center text-slate-400"
-                  >
-                    데이터가 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                reservations.map((res) => {
-                  const date = new Date(res.reservationTime);
-                  return (
-                    <tr
-                      key={res.reservationId}
-                      className="hover:bg-slate-50/30 transition-colors"
+      <Card padded={false}>
+        {loading ? (
+          <LoadingState text="예약을 불러오는 중입니다" />
+        ) : error ? (
+          <ErrorState message={error} onRetry={fetchData} />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon={CalendarDays}
+            title={filter === "UPCOMING" ? "방문 예정인 예약이 없어요" : "해당하는 예약이 없어요"}
+            description="손님이 염색온 앱으로 예약하면 여기에 바로 보여요."
+          />
+        ) : (
+          <ul className="divide-y divide-line">
+            {visible.map((res) => (
+              <li key={res.reservationId} className="grid gap-4 p-5 md:grid-cols-[11rem_1fr_auto] md:items-center md:p-6">
+                {/* 언제 */}
+                <div>
+                  <p className="text-body font-semibold text-ink-sub">{formatKstDate(res.reservationTime)}</p>
+                  <p className="text-title font-bold tabular-nums text-ink">{formatKstTime(res.reservationTime)}</p>
+                </div>
+
+                {/* 누가 / 무엇을 */}
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Link
+                      href={`/clients/${res.clientId}`}
+                      className="text-heading font-bold text-ink underline-offset-4 hover:text-brand hover:underline"
                     >
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/clients/${res.clientId}`}
-                          className="font-bold text-slate-800 hover:text-violet-600 cursor-pointer"
-                        >
-                          {res.customerName}
-                        </Link>
-                        <div className="text-slate-400 text-[11px] mt-0.5">
-                          {res.customerPhone}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 font-mono">
-                        <div>
-                          {date.toLocaleDateString("ko-KR", {
-                            month: "2-digit",
-                            day: "2-digit",
-                            timeZone: "Asia/Seoul",
-                          })}
-                        </div>
-                        <div className="text-slate-400 text-[11px] mt-0.5">
-                          {date.toLocaleTimeString("ko-KR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                            timeZone: "Asia/Seoul",
-                          })}
-                        </div>
-                      </td>
-
-                      {/* 3. 담당자 섹션: 클릭 가능한 컴포넌트 버튼 레이어로 격상 */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col items-start space-y-1.5">
-                          <span className="text-[11px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-                            {res.treatment === "FULL_DYE"
-                              ? "전체 염색"
-                              : res.treatment === "ROOT_DYE"
-                                ? "뿌리 염색"
-                                : res.treatment}
-                          </span>
-
-                          {/* ⭕ 클릭 시 재배정 모달 트리거 바인딩 */}
-                          <button
-                            onClick={() =>
-                              openDesignerModal(
-                                res.reservationId,
-                                res.designers,
-                              )
-                            }
-                            className="flex flex-wrap gap-1 hover:ring-2 hover:ring-violet-600/20 p-1 rounded-lg transition-all text-left bg-transparent cursor-pointer group"
-                            title="담당 디자이너 재배정"
-                          >
-                            {res.designers && res.designers.length > 0 ? (
-                              res.designers.map((designer) => (
-                                <span
-                                  key={designer.designerId}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-100 group-hover:bg-violet-950 transition-colors"
-                                >
-                                  <Scissors className="w-2.5 h-2.5 mr-1 text-slate-400 transform -rotate-45" />
-                                  {designer.designerName}
-                                  <span className="text-slate-400 font-normal text-[9px] ml-1">
-                                    {designer.position}
-                                  </span>
-                                </span>
-                              ))
-                            ) : (
-                              <span className="inline-flex items-center text-[10px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 border-dashed">
-                                <UserPlus className="w-2.5 h-2.5 mr-1" /> 담당자
-                                미지정 (추가)
-                              </span>
-                            )}
-                          </button>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 font-mono font-bold text-slate-800">
-                        {res.totalAmount.toLocaleString()}원
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            res.status === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : res.status === "CONFIRMED"
-                                ? "bg-violet-50 text-violet-700"
-                                : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {res.status}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4 text-center">
-                        {res.status === "COMPLETED" ? (
-                          <span className="text-slate-300 font-bold">
-                            - 마감 -
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() =>
-                              openHistoryModal(res.reservationId, res.clientId)
-                            }
-                            className="px-3 py-1.5 border border-slate-200 hover:border-violet-500 text-slate-700 hover:text-violet-600 rounded-xl font-bold cursor-pointer"
-                          >
-                            시술 완료
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 🎯 8. 담당 디자이너 실시간 변경 변경 (PATCH) 트리거 팝업 모달 */}
-      {isDesignerModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full overflow-hidden">
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center">
-                <Scissors className="w-4 h-4 mr-1.5 text-violet-600" /> 담당
-                디자이너 변경 배정
-              </h3>
-              <button
-                onClick={() => setIsDesignerModalOpen(false)}
-                className="text-slate-400 text-sm font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleDesignerUpdateSubmit}>
-              <div className="p-5 space-y-3 max-h-[250px] overflow-y-auto">
-                <p className="text-[11px] text-slate-400 mb-2">
-                  이 예약 건에 투입될 디자이너를 선택하세요. (중복 선택 가능)
-                </p>
-                {shopDesigners.map((designer) => (
-                  <label
-                    key={designer.designerId}
-                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                      {res.customerName} 손님
+                    </Link>
+                    <a
+                      href={`tel:${res.customerPhone}`}
+                      className="inline-flex items-center gap-1 text-body text-ink-sub hover:text-brand"
+                    >
+                      <Phone className="h-4 w-4" aria-hidden />
+                      {res.customerPhone}
+                    </a>
+                  </div>
+                  <p className="text-body text-ink">
+                    <span className="font-bold">{menuLabel(res.treatment)}</span>
+                    <span className="text-ink-sub"> · </span>
+                    <span className="font-bold tabular-nums">{formatWon(res.totalAmount)}</span>
+                  </p>
+                  {/* 담당 선생님 (눌러서 변경) */}
+                  <button
+                    onClick={() => openDesignerModal(res.reservationId, res.designers)}
+                    className="inline-flex min-h-touch cursor-pointer flex-wrap items-center gap-2 rounded-control border-[1.5px] border-dashed border-line-strong px-3 py-2 text-left text-body hover:border-brand hover:bg-brand-soft"
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs font-bold text-slate-800">
-                        {designer.designerName}
-                      </span>
-                      <span className="text-[10px] text-slate-400 bg-white border border-slate-200 px-1 py-0.5 rounded">
-                        {designer.position}
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={selectedDesignerIds.includes(
-                        designer.designerId,
-                      )}
-                      onChange={() =>
-                        handleDesignerCheckboxChange(designer.designerId)
-                      }
-                      className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
-                    />
-                  </label>
-                ))}
-              </div>
+                    {res.designers && res.designers.length > 0 ? (
+                      <>
+                        <Scissors className="h-5 w-5 text-ink-sub" aria-hidden />
+                        <span className="font-semibold text-ink">
+                          {res.designers.map((d) => `${d.designerName}(${d.position})`).join(", ")}
+                        </span>
+                        <span className="font-bold text-brand">· 바꾸기</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-5 w-5 text-warning" aria-hidden />
+                        <span className="font-bold text-warning">담당 선생님 정하기</span>
+                      </>
+                    )}
+                  </button>
+                </div>
 
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDesignerModalOpen(false)}
-                  className="text-xs font-semibold text-slate-500 cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={updatingDesigner}
-                  className="px-4 py-2 bg-violet-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 cursor-pointer flex items-center space-x-1"
-                >
-                  {updatingDesigner ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <span>배정 관계 업데이트</span>
+                {/* 상태 / 할 일 */}
+                <div className="flex flex-wrap items-center gap-3 md:flex-col md:items-end">
+                  <ReservationStatusBadge status={res.status} />
+                  {res.status !== "COMPLETED" && (
+                    <Button
+                      icon={CheckCircle2}
+                      onClick={() => openHistoryModal(res.reservationId, res.clientId)}
+                    >
+                      시술 완료
+                    </Button>
                   )}
-                </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* 담당 선생님 변경 팝업 */}
+      {isDesignerModalOpen && (
+          <Modal
+            title="담당 선생님 바꾸기"
+            onClose={closeDesignerModal}
+            footer={
+              <>
+                <Button type="button" variant="secondary" onClick={closeDesignerModal}>
+                  취소
+                </Button>
+                <Button
+                  type="submit"
+                  form="designer-form"
+                  icon={UserCog}
+                  loading={updatingDesigner}
+                  loadingText="저장하고 있어요"
+                >
+                  저장하기
+                </Button>
+              </>
+            }
+          >
+            <form id="designer-form" onSubmit={handleDesignerUpdateSubmit}>
+            <p className="mb-4 text-body text-ink-sub">
+              이 예약을 맡을 선생님을 골라 주세요. 여러 분을 고를 수 있어요.
+            </p>
+            {shopDesigners.length === 0 ? (
+              <p className="text-body text-ink">
+                등록된 선생님이 없어요. &lsquo;선생님(디자이너) 관리&rsquo;에서 먼저 등록해 주세요.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {shopDesigners.map((designer) => {
+                  const checked = selectedDesignerIds.includes(designer.designerId);
+                  return (
+                    <label
+                      key={designer.designerId}
+                      className={`flex min-h-touch cursor-pointer items-center gap-3 rounded-control border-[1.5px] p-4 ${
+                        checked ? "border-brand bg-brand-soft" : "border-line-strong bg-surface hover:bg-canvas"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleDesignerCheckboxChange(designer.designerId)}
+                        className="h-6 w-6 shrink-0 cursor-pointer accent-brand"
+                      />
+                      <span className="text-body font-bold text-ink">{designer.designerName}</span>
+                      <span className="text-body text-ink-sub">{designer.position}</span>
+                    </label>
+                  );
+                })}
               </div>
+            )}
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
-      {/* 시술 기록 모달 */}
+      {/* 시술 완료 팝업 */}
       {isHistoryModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">
-                시술완료 차트 기록
-              </h3>
-              <button
-                onClick={() => setIsHistoryModalOpen(false)}
-                className="text-slate-400 font-bold cursor-pointer"
+        <Modal
+          title="시술 완료 처리"
+          onClose={closeHistoryModal}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={closeHistoryModal}>
+                취소
+              </Button>
+              <Button
+                type="submit"
+                form="history-form"
+                icon={CheckCircle2}
+                loading={submittingHistory}
+                loadingText="저장하고 있어요"
               >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleCompleteHistorySubmit}>
-              <div className="p-6">
-                <textarea
-                  required
-                  value={treatmentNote}
-                  onChange={(e) => setTreatmentNote(e.target.value)}
-                  placeholder="시술 메모를 입력하세요."
-                  rows={4}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-violet-500 font-normal resize-none"
-                />
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryModalOpen(false)}
-                  className="text-xs text-slate-500 cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingHistory}
-                  className="px-4 py-2 bg-violet-600 text-white text-xs font-semibold rounded-xl cursor-pointer"
-                >
-                  {submittingHistory ? "기록중..." : "완료 및 이력 저장"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+                완료로 저장
+              </Button>
+            </>
+          }
+        >
+          <form id="history-form" onSubmit={handleCompleteHistorySubmit}>
+            <Field
+              label="시술 메모"
+              htmlFor="treatment-note"
+              hint="사용한 염색약 번호, 손님 요청 사항 등을 적어 두면 다음 방문 때 편해요."
+            >
+              <textarea
+                id="treatment-note"
+                required
+                value={treatmentNote}
+                onChange={(e) => setTreatmentNote(e.target.value)}
+                placeholder="예) 7N 자연갈색, 뿌리 2cm, 두피 민감"
+                rows={5}
+                className={`${inputClass} resize-none`}
+              />
+            </Field>
+          </form>
+        </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }

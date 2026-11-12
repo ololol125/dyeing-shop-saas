@@ -1,16 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Users,
   UserPlus,
-  Loader2,
-  X,
   Check,
   UserCheck,
   UserX,
-  AlertCircle,
+  PauseCircle,
+  PlayCircle,
+  Trash2,
 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  LoadingState,
+  Modal,
+  PageContainer,
+  PageHeader,
+  inputClass,
+} from "@/components/owner/ui";
+import { authHeaders, errorMessage, formatKstFullDate } from "@/lib/client-utils";
 
 interface Designer {
   designerId: number;
@@ -20,49 +34,36 @@ interface Designer {
   createdAt: string;
 }
 
+const positions = ["원장", "부원장", "수석 디자이너", "실장", "디자이너", "인턴"];
+
 export default function DesignersPage() {
   const [designers, setDesigners] = useState<Designer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 모달 및 등록 폼 관련 상태값
+  // 등록 팝업 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newDesignerName, setNewDesignerName] = useState("");
   const [newPosition, setNewPosition] = useState("디자이너"); // 기본 직급
   const [submitting, setSubmitting] = useState(false);
 
-  // 브라우저 쿠키에서 토큰 가져오기 유틸 함수
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-  };
-
-  // 🔄 디자이너 목록 페칭 (GET)
+  // 디자이너 목록 (GET)
   const fetchDesigners = async () => {
     setLoading(true);
     setError("");
     try {
-      const token = getCookie("token");
-      const res = await fetch("/api/v1/designers", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      if (!res.ok)
-        throw new Error("디자이너 리스트를 가져오는데 실패했습니다.");
+      const res = await fetch("/api/v1/designers", { headers: authHeaders() });
+      if (!res.ok) throw new Error("선생님 목록을 가져오지 못했습니다.");
       const data = await res.json();
 
-      // API 설계 규격에 따라 데이터 매핑 (예상 구조: { success: true, data: [...] })
       if (data.success) {
         setDesigners(data.data || data.designers || []);
       } else {
-        throw new Error(data.error || "목록 로드 실패");
+        throw new Error(data.error || "선생님 목록을 가져오지 못했습니다.");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -72,20 +73,16 @@ export default function DesignersPage() {
     fetchDesigners();
   }, []);
 
-  // ➕ 신규 디자이너 등록 제출 처리 (POST)
+  // 새 디자이너 등록 (POST)
   const handleCreateDesigner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDesignerName.trim()) return;
 
     setSubmitting(true);
     try {
-      const token = getCookie("token");
       const res = await fetch("/api/v1/designers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           designerName: newDesignerName,
           position: newPosition,
@@ -93,324 +90,196 @@ export default function DesignersPage() {
       });
 
       const data = await res.json();
-
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "디자이너 등록에 실패했습니다.");
+        throw new Error(data.error || "선생님을 등록하지 못했습니다.");
       }
 
-      // 등록 성공 시 상태 초기화 및 창 닫기, 리스트 리로드
       setNewDesignerName("");
       setNewPosition("디자이너");
       setIsModalOpen(false);
-      fetchDesigners(); // 리스트 새로고침
-    } catch (err: any) {
-      alert(err.message);
+      fetchDesigners();
+    } catch (err) {
+      alert(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const toggleDesignerStatus = async (
-    designerId: number,
-    currentStatus: boolean,
-  ) => {
+  // 예약 받기 / 멈추기 (PATCH)
+  const toggleDesignerStatus = async (designerId: number, currentStatus: boolean) => {
     try {
-      const token = getCookie("token");
       const res = await fetch("/api/v1/designers", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          designerId,
-          isActive: !currentStatus,
-        }),
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ designerId, isActive: !currentStatus }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success)
-        throw new Error(data.error || "상태 변경 실패");
+      if (!res.ok || !data.success) throw new Error(data.error || "상태를 바꾸지 못했습니다.");
 
-      // 리스트 갱신
       fetchDesigners();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(errorMessage(err));
     }
   };
 
-  const deleteDesigner = async (designerId: number) => {
+  const deleteDesigner = async (designer: Designer) => {
     if (
       !confirm(
-        "정말 이 디자이너를 명단에서 삭제하시겠습니까?\n삭제 시 이전 예약 배정 기록이 영향을 받을 수 있습니다.",
+        `${designer.designerName} 선생님을 목록에서 삭제할까요?\n삭제하면 지난 예약의 담당 기록에도 영향이 있을 수 있어요.\n잠시 쉬는 경우라면 '예약 멈추기'를 권해요.`,
       )
     )
       return;
 
     try {
-      const token = getCookie("token");
-      const res = await fetch(`/api/v1/designers?designerId=${designerId}`, {
+      const res = await fetch(`/api/v1/designers?designerId=${designer.designerId}`, {
         method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders(),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "삭제 실패");
+      if (!res.ok || !data.success) throw new Error(data.error || "삭제하지 못했습니다.");
 
       fetchDesigners();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(errorMessage(err));
     }
   };
+
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
+
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800">
-      {/* 1. 상단 헤더 섹션 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            디자이너 설정
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            우리 매장의 디자이너 리스트를 등록하고 예약 활성화 상태를
-            편집합니다.
-          </p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center space-x-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-violet-600/10 active:scale-98 cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>신규 디자이너 등록</span>
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="선생님(디자이너) 관리"
+        description="손님이 앱에서 고를 수 있는 담당 선생님 목록이에요."
+        action={
+          <Button icon={UserPlus} onClick={() => setIsModalOpen(true)}>
+            선생님 추가
+          </Button>
+        }
+      />
 
-      {/* 2. 메인 컨텐츠 영역 */}
-      {loading ? (
-        // 로딩 스피너 구역
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm">
-          <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
-          <p className="text-xs text-slate-400 mt-3 font-medium">
-            디자이너 명단을 매핑하는 중...
-          </p>
-        </div>
-      ) : error ? (
-        // 에러 표시 구역
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm text-center">
-          <div className="p-3 bg-rose-50 text-rose-500 rounded-xl mb-3">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            명단을 불러오지 못했습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm">{error}</p>
-          <button
-            onClick={fetchDesigners}
-            className="mt-4 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
-          >
-            다시 시도
-          </button>
-        </div>
-      ) : designers.length === 0 ? (
-        // 빈 데이터 구역 (Empty State)
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm min-h-[350px]">
-          <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-4">
-            <Users className="w-8 h-8" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800">
-            등록된 디자이너가 없습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-[260px]">
-            오른쪽 상단 버튼을 클릭해 첫 번째 디자이너를 등록하고 예약을
-            접수받아 보세요!
-          </p>
-        </div>
-      ) : (
-        // 진짜 디자이너 리스트 그리드/테이블 레이아웃
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-6 py-4">디자이너 프로필</th>
-                  <th className="px-6 py-4">직급 (Position)</th>
-                  <th className="px-6 py-4">등록 일자</th>
-                  <th className="px-6 py-4">노출 상태</th>
-                  <th className="px-6 py-4 text-center">동작</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                {designers.map((designer) => (
-                  <tr
-                    key={designer.designerId}
-                    className="hover:bg-slate-50/50 transition-colors"
-                  >
-                    {/* 아바타 & 이름 */}
-                    <td className="px-6 py-4 font-bold text-slate-800">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-slate-100 to-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs shadow-inner">
-                          {designer.designerName.charAt(0)}
-                        </div>
-                        <span>{designer.designerName}</span>
-                      </div>
-                    </td>
-                    {/* 직급 태그 */}
-                    <td className="px-6 py-4">
-                      <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200/50">
-                        {designer.position}
-                      </span>
-                    </td>
-                    {/* 등록일 */}
-                    <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                      {new Date(designer.createdAt).toLocaleDateString(
-                        "ko-KR",
-                        {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                        },
-                      )}
-                    </td>
-                    {/* 현재 활성화 여부 배지 */}
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          designer.isActive !== false
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                            : "bg-rose-50 text-rose-700 border border-rose-100"
-                        }`}
-                      >
-                        {designer.isActive !== false ? (
-                          <>
-                            <UserCheck className="w-3 h-3 mr-0.5" />
-                            예약 가능
-                          </>
-                        ) : (
-                          <>
-                            <UserX className="w-3 h-3 mr-0.5" />
-                            예약 중지
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    {/* 관리 액션 버튼 */}
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() =>
-                          toggleDesignerStatus(
-                            designer.designerId,
-                            designer.isActive !== false,
-                          )
-                        }
-                        className="text-violet-600 hover:text-violet-900 transition-colors cursor-pointer"
-                      >
-                        {designer.isActive !== false
-                          ? "예약 중지하기"
-                          : "예약 활성화"}
-                      </button>
-                      <span className="text-slate-200">|</span>
-                      <button
-                        onClick={() => deleteDesigner(designer.designerId)}
-                        className="text-rose-500 hover:text-rose-700 transition-colors cursor-pointer"
-                      >
-                        삭제
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <Card padded={false}>
+        {loading ? (
+          <LoadingState text="선생님 목록을 불러오는 중입니다" />
+        ) : error ? (
+          <ErrorState message={error} onRetry={fetchDesigners} />
+        ) : designers.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="등록된 선생님이 없어요"
+            description="선생님을 등록해야 손님이 앱에서 예약할 수 있어요."
+            action={
+              <Button icon={UserPlus} onClick={() => setIsModalOpen(true)}>
+                첫 선생님 추가하기
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-line">
+            {designers.map((designer) => {
+              const active = designer.isActive !== false;
+              return (
+                <li
+                  key={designer.designerId}
+                  className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:p-6"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-soft text-heading font-bold text-brand">
+                      {designer.designerName.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-heading font-bold text-ink">
+                        {designer.designerName}
+                        <span className="ml-2 text-body font-semibold text-ink-sub">{designer.position}</span>
+                      </p>
+                      <p className="text-caption text-ink-sub">
+                        {formatKstFullDate(designer.createdAt)} 등록
+                      </p>
+                    </div>
+                  </div>
 
-      {/* 3. ✨ 신규 등록 레이어 모달 (Overlay Modal) */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {active ? (
+                      <Badge icon={UserCheck} className="border-success/30 bg-success-soft text-success">
+                        예약 받는 중
+                      </Badge>
+                    ) : (
+                      <Badge icon={UserX} className="border-warning/30 bg-warning-soft text-warning">
+                        예약 멈춤
+                      </Badge>
+                    )}
+                    <Button
+                      variant="secondary"
+                      icon={active ? PauseCircle : PlayCircle}
+                      onClick={() => toggleDesignerStatus(designer.designerId, active)}
+                    >
+                      {active ? "예약 멈추기" : "예약 다시 받기"}
+                    </Button>
+                    <Button variant="danger" icon={Trash2} onClick={() => deleteDesigner(designer)}>
+                      삭제
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {/* 선생님 추가 팝업 */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all scale-100">
-            {/* 모달 헤더 */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
-                  <UserPlus className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-slate-900">신규 디자이너 등록</h3>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors"
+        <Modal
+          title="선생님 추가"
+          onClose={closeModal}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={closeModal}>
+                취소
+              </Button>
+              <Button
+                type="submit"
+                form="designer-create-form"
+                icon={Check}
+                loading={submitting}
+                loadingText="등록하고 있어요"
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* 모달 바디 / 폼 */}
-            <form onSubmit={handleCreateDesigner}>
-              <div className="p-6 space-y-4">
-                {/* 1. 디자이너명 입력필드 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    디자이너 실명
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newDesignerName}
-                    onChange={(e) => setNewDesignerName(e.target.value)}
-                    placeholder="예: 김선우"
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                  />
-                </div>
-
-                {/* 2. 직급 셀렉트 박스 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    직급 설정
-                  </label>
-                  <select
-                    value={newPosition}
-                    onChange={(e) => setNewPosition(e.target.value)}
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all text-slate-700"
-                  >
-                    <option value="원장">원장 (Director)</option>
-                    <option value="부원장">부원장</option>
-                    <option value="수석 디자이너">수석 디자이너</option>
-                    <option value="실장">실장</option>
-                    <option value="디자이너">디자이너 (Designer)</option>
-                    <option value="인턴">인턴/파트너</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 모달 푸터 액션 */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 rounded-xl transition-colors cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-md shadow-violet-600/10 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <>
-                      <Check className="w-3 h-3" />
-                      <span>추가하기</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+                추가하기
+              </Button>
+            </>
+          }
+        >
+          <form id="designer-create-form" onSubmit={handleCreateDesigner} className="space-y-5">
+            <Field label="이름" htmlFor="designer-name" hint="손님 앱에 이 이름으로 보여요.">
+              <input
+                id="designer-name"
+                type="text"
+                required
+                autoFocus
+                value={newDesignerName}
+                onChange={(e) => setNewDesignerName(e.target.value)}
+                placeholder="예) 김선우"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="직급" htmlFor="designer-position">
+              <select
+                id="designer-position"
+                value={newPosition}
+                onChange={(e) => setNewPosition(e.target.value)}
+                className={inputClass}
+              >
+                {positions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </form>
+        </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }

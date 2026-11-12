@@ -2,18 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { Store, Check, ArrowRight } from "lucide-react";
 import {
-  Store,
-  MapPin,
-  Navigation,
-  Banknote,
-  Phone,
-  Clock,
-  FileText,
-  Loader2,
-  Check,
-  AlertCircle,
-} from "lucide-react";
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  LoadingState,
+  Notice,
+  PageContainer,
+  PageHeader,
+  SectionTitle,
+  inputClass,
+} from "@/components/owner/ui";
+import { authHeaders, errorMessage } from "@/lib/client-utils";
 
 interface ShopInfo {
   shopId: number;
@@ -36,6 +39,7 @@ export default function ShopInfoPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [shopName, setShopName] = useState("");
   const [baseAddress, setBaseAddress] = useState("");
@@ -47,24 +51,12 @@ export default function ShopInfoPage() {
   const [phone, setPhone] = useState("");
   const [businessHours, setBusinessHours] = useState("");
 
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-  };
-
   const fetchShop = async () => {
     setLoading(true);
     setError("");
     setNoShop(false);
     try {
-      const token = getCookie("token");
-      const res = await fetch("/api/v1/shops/mine", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
+      const res = await fetch("/api/v1/shops/mine", { headers: authHeaders() });
       const data = await res.json();
 
       if (res.status === 404) {
@@ -87,8 +79,8 @@ export default function ShopInfoPage() {
       setDescription(s.description || "");
       setPhone(s.phone || "");
       setBusinessHours(s.businessHours || "");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -102,14 +94,11 @@ export default function ShopInfoPage() {
     e.preventDefault();
     setSaving(true);
     setSaveSuccess(false);
+    setSaveError("");
     try {
-      const token = getCookie("token");
       const res = await fetch("/api/v1/shops", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           shopName,
           baseAddress,
@@ -125,288 +114,141 @@ export default function ShopInfoPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "매장 정보 수정에 실패했습니다.");
+        throw new Error(data.error || "매장 정보를 저장하지 못했습니다.");
       }
 
+      // 저장 완료 안내는 사장님이 확인할 수 있도록 자동으로 사라지지 않게 둔다
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      setSaveError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
+  // 입력이 바뀌면 '저장했어요' 안내는 지운다
+  const edit = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSaveSuccess(false);
+    setter(e.target.value);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
-        <p className="text-xs text-slate-400 mt-3 font-medium">
-          매장 정보를 불러오는 중...
-        </p>
-      </div>
+      <PageContainer>
+        <LoadingState text="매장 정보를 불러오는 중입니다" />
+      </PageContainer>
     );
   }
 
   if (noShop) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
-          <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto mb-4">
-            <Store className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800">
-            아직 등록된 매장이 없어요
-          </h3>
-          <p className="text-xs text-slate-400 mt-1.5">
-            매장 정보를 먼저 등록해야 소비자 앱에 노출되는 정보를 수정할 수
-            있습니다.
-          </p>
-          <Link
-            href="/shop/register"
-            className="mt-5 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center mx-auto space-x-1.5 transition-colors"
-          >
-            <span>매장 등록하러 가기</span>
-          </Link>
-        </div>
-      </div>
+      <PageContainer narrow>
+        <Card>
+          <EmptyState
+            icon={Store}
+            title="먼저 매장을 등록해 주세요"
+            description="매장을 등록하시면 손님 앱에 보이는 정보를 여기서 고칠 수 있어요."
+            action={
+              <Link
+                href="/shop/register"
+                className="inline-flex min-h-touch items-center gap-2 rounded-control bg-brand px-6 text-button font-bold text-white hover:bg-brand-pressed"
+              >
+                매장 등록하러 가기
+                <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            }
+          />
+        </Card>
+      </PageContainer>
     );
   }
 
   if (error || !shop) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800">
-            매장 정보를 불러올 수 없습니다
-          </h3>
-          <p className="text-xs text-rose-400 mt-1">{error}</p>
-          <button
-            onClick={fetchShop}
-            className="mt-5 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold cursor-pointer"
-          >
-            다시 시도
-          </button>
-        </div>
-      </div>
+      <PageContainer narrow>
+        <Card>
+          <ErrorState message={error || "매장 정보를 가져오지 못했습니다."} onRetry={fetchShop} />
+        </Card>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-          매장 정보 관리
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          소비자 앱(염색온)에 노출되는 매장 기본 정보를 수정합니다.
-        </p>
-      </div>
+    <PageContainer narrow>
+      <PageHeader title="매장 정보" description="손님 앱(염색온)에 보이는 매장 정보를 고칠 수 있어요." />
 
-      <div className="max-w-2xl">
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-8 space-y-5"
-        >
-          {/* 사업자 등록번호 (읽기 전용) */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              사업자 등록번호 (수정 불가)
-            </label>
-            <div className="px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 font-mono">
-              {shop.businessNumber}
-            </div>
-          </div>
-
-          {/* 매장명 */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              매장명
-            </label>
-            <div className="relative rounded-xl shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Store className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                required
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* 소개 내용 */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              매장 소개
-            </label>
-            <div className="relative rounded-xl shadow-sm">
-              <div className="absolute top-3 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <FileText className="w-4 h-4" />
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <SectionTitle>손님에게 보이는 정보</SectionTitle>
+          <div className="space-y-5">
+            <Field label="매장 이름" htmlFor="shop-name">
+              <input id="shop-name" type="text" required value={shopName} onChange={edit(setShopName)} className={inputClass} />
+            </Field>
+            <Field label="매장 소개" htmlFor="shop-desc" hint="손님 앱의 매장 화면 맨 위에 보여요.">
               <textarea
+                id="shop-desc"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="소비자 앱에 노출될 매장 소개 문구를 입력해 주세요."
-                className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all resize-none"
+                onChange={edit(setDescription)}
+                rows={4}
+                placeholder="예) 신림역 3번 출구 앞, 20년 경력 원장이 직접 염색해 드립니다."
+                className={`${inputClass} resize-none`}
               />
+            </Field>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field label="매장 전화번호" htmlFor="shop-phone" hint="손님이 앱에서 바로 전화를 걸 수 있어요.">
+                <input id="shop-phone" type="tel" value={phone} onChange={edit(setPhone)} placeholder="02-1234-5678" className={inputClass} />
+              </Field>
+              <Field label="영업시간" htmlFor="shop-hours">
+                <input id="shop-hours" type="text" value={businessHours} onChange={edit(setBusinessHours)} placeholder="매일 오전 9시 ~ 오후 9시" className={inputClass} />
+              </Field>
             </div>
           </div>
+        </Card>
 
-          {/* 전화번호 / 영업시간 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                매장 전화번호
-              </label>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="02-1234-5678"
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                영업시간
-              </label>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  value={businessHours}
-                  onChange={(e) => setBusinessHours(e.target.value)}
-                  placeholder="매일 09:00 - 21:00"
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                />
-              </div>
-            </div>
+        <Card>
+          <SectionTitle>시술 가격</SectionTitle>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field label="뿌리 염색 (원)" htmlFor="root-price">
+              <input id="root-price" type="number" inputMode="numeric" min={0} value={rootPrice} onChange={edit(setRootPrice)} className={inputClass} />
+            </Field>
+            <Field label="전체 염색 (원)" htmlFor="full-price">
+              <input id="full-price" type="number" inputMode="numeric" min={0} value={fullPrice} onChange={edit(setFullPrice)} className={inputClass} />
+            </Field>
           </div>
+        </Card>
 
-          {/* 주소 */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              매장 주소
-            </label>
-            <div className="relative rounded-xl shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                required
-                value={baseAddress}
-                onChange={(e) => setBaseAddress(e.target.value)}
-                className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-              />
+        <Card>
+          <SectionTitle>위치</SectionTitle>
+          <div className="space-y-5">
+            <Field label="매장 주소" htmlFor="shop-address">
+              <input id="shop-address" type="text" required value={baseAddress} onChange={edit(setBaseAddress)} className={inputClass} />
+            </Field>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field label="위도" htmlFor="shop-lat">
+                <input id="shop-lat" type="number" step="any" required value={latitude} onChange={edit(setLatitude)} className={inputClass} />
+              </Field>
+              <Field label="경도" htmlFor="shop-lng">
+                <input id="shop-lng" type="number" step="any" required value={longitude} onChange={edit(setLongitude)} className={inputClass} />
+              </Field>
             </div>
+            <p className="text-caption text-ink-sub">
+              위도·경도는 손님 앱 지도에 매장을 표시할 때 써요. 주소를 옮기실 때만 바꿔 주세요.
+            </p>
+            <Field label="사업자 등록번호" htmlFor="shop-bizno" hint="사업자 등록번호는 바꿀 수 없어요.">
+              <input id="shop-bizno" type="text" readOnly value={shop.businessNumber} className={inputClass} />
+            </Field>
           </div>
+        </Card>
 
-          {/* 위도 / 경도 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                위도 (Latitude)
-              </label>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Navigation className="w-4 h-4" />
-                </div>
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                경도 (Longitude)
-              </label>
-              <input
-                type="number"
-                step="any"
-                required
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-              />
-            </div>
-          </div>
+        {saveError && <Notice tone="error">{saveError}</Notice>}
+        {saveSuccess && <Notice tone="success">저장했어요. 손님 앱에 바로 반영됩니다.</Notice>}
 
-          {/* 뿌리/전체 염색 가격 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                뿌리 염색 가격
-              </label>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Banknote className="w-4 h-4" />
-                </div>
-                <input
-                  type="number"
-                  min={0}
-                  value={rootPrice}
-                  onChange={(e) => setRootPrice(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                전체 염색 가격
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={fullPrice}
-                onChange={(e) => setFullPrice(e.target.value)}
-                className="block w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* 저장 버튼 */}
-          <div className="pt-2 flex items-center justify-end space-x-3">
-            {saveSuccess && (
-              <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>저장되었습니다</span>
-              </span>
-            )}
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center justify-center space-x-2 py-3 px-6 border border-transparent rounded-xl shadow-md shadow-violet-600/10 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>변경사항 저장</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end">
+          <Button type="submit" icon={Check} loading={saving} loadingText="저장하고 있어요" className="w-full sm:w-auto">
+            변경한 내용 저장하기
+          </Button>
+        </div>
+      </form>
+    </PageContainer>
   );
 }

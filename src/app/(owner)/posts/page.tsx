@@ -1,20 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   Newspaper,
   Plus,
-  Loader2,
-  X,
   Check,
   Pencil,
   Trash2,
-  AlertCircle,
   ImagePlus,
   Eye,
   EyeOff,
 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  LoadingState,
+  Modal,
+  PageContainer,
+  PageHeader,
+  inputClass,
+} from "@/components/owner/ui";
+import { authHeaders, errorMessage, formatKstFullDate } from "@/lib/client-utils";
 
 interface Post {
   postId: number;
@@ -40,37 +51,25 @@ export default function PostsPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-  };
-
   const fetchPosts = async () => {
     setLoading(true);
     setError("");
     try {
-      const token = getCookie("token");
-      const res = await fetch("/api/v1/posts/mine", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
+      const res = await fetch("/api/v1/posts/mine", { headers: authHeaders() });
       const data = await res.json();
 
       if (res.status === 404) {
-        setError("등록된 매장이 없습니다. 매장을 먼저 등록해 주세요.");
+        setError("등록된 매장이 없어요. '매장 정보'에서 매장을 먼저 등록해 주세요.");
         return;
       }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "게시물 목록을 가져오지 못했습니다.");
+        throw new Error(data.error || "매장 소식을 가져오지 못했습니다.");
       }
 
       setPosts(data.data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -113,323 +112,234 @@ export default function PostsPage() {
 
     setSubmitting(true);
     try {
-      const token = getCookie("token");
       const formData = new FormData();
       formData.append("title", title);
       formData.append("content", content);
       formData.append("status", status);
       if (imageFile) formData.append("image", imageFile);
 
-      const url = editingPost
-        ? `/api/v1/posts/${editingPost.postId}`
-        : "/api/v1/posts";
+      const url = editingPost ? `/api/v1/posts/${editingPost.postId}` : "/api/v1/posts";
       const method = editingPost ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-      });
-
+      const res = await fetch(url, { method, headers: authHeaders(), body: formData });
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "게시물 저장에 실패했습니다.");
+        throw new Error(data.error || "매장 소식을 저장하지 못했습니다.");
       }
 
       setIsModalOpen(false);
       fetchPosts();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const deletePost = async (postId: number) => {
-    if (!confirm("정말 이 게시물을 삭제하시겠습니까?\n소비자 앱 피드에서도 즉시 사라집니다.")) return;
+  const deletePost = async (post: Post) => {
+    if (!confirm(`'${post.title}' 소식을 삭제할까요?\n손님 앱에서도 바로 사라집니다.`)) return;
 
     try {
-      const token = getCookie("token");
-      const res = await fetch(`/api/v1/posts/${postId}`, {
+      const res = await fetch(`/api/v1/posts/${post.postId}`, {
         method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders(),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "삭제 실패");
+      if (!res.ok || !data.success) throw new Error(data.error || "삭제하지 못했습니다.");
 
       fetchPosts();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(errorMessage(err));
     }
   };
 
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
+
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800">
-      {/* 상단 헤더 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            게시물 관리
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            소비자 앱(염색온) 홈 화면 피드에 노출되는 매장 게시물을 등록하고
-            관리합니다.
-          </p>
-        </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center justify-center space-x-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-md shadow-violet-600/10 active:scale-98 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>새 게시물 작성</span>
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="매장 소식 올리기"
+        description="올린 사진과 글은 손님 앱의 매장 화면에 보여요. 가장 최근 사진이 매장 대표 사진이 돼요."
+        action={
+          <Button icon={Plus} onClick={openCreateModal}>
+            새 소식 쓰기
+          </Button>
+        }
+      />
 
-      {/* 메인 컨텐츠 */}
       {loading ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm">
-          <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
-          <p className="text-xs text-slate-400 mt-3 font-medium">
-            게시물 목록을 불러오는 중...
-          </p>
-        </div>
+        <Card>
+          <LoadingState text="매장 소식을 불러오는 중입니다" />
+        </Card>
       ) : error ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-sm text-center">
-          <div className="p-3 bg-rose-50 text-rose-500 rounded-xl mb-3">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            목록을 불러오지 못했습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm">{error}</p>
-          <button
-            onClick={fetchPosts}
-            className="mt-4 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
-          >
-            다시 시도
-          </button>
-        </div>
+        <Card>
+          <ErrorState message={error} onRetry={fetchPosts} />
+        </Card>
       ) : posts.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm min-h-[350px]">
-          <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-4">
-            <Newspaper className="w-8 h-8" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800">
-            등록된 게시물이 없습니다
-          </h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-[280px]">
-            오른쪽 상단 버튼을 클릭해 소비자 앱 홈 화면에 노출될 첫 게시물을
-            등록해 보세요!
-          </p>
-        </div>
+        <Card>
+          <EmptyState
+            icon={Newspaper}
+            title="아직 올린 소식이 없어요"
+            description="매장 사진과 함께 첫 소식을 올려 보세요. 사진이 있으면 손님 앱에서 매장이 더 눈에 띄어요."
+            action={
+              <Button icon={Plus} onClick={openCreateModal}>
+                첫 소식 쓰기
+              </Button>
+            }
+          />
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
-            <div
-              key={post.postId}
-              className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all"
-            >
-              <div className="relative w-full h-40 bg-slate-100">
-                {post.imageUrl ? (
-                  <Image
-                    src={post.imageUrl}
-                    alt={post.title}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <ImagePlus className="w-8 h-8" />
-                  </div>
-                )}
-                <span
-                  className={`absolute top-3 left-3 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm ${
-                    post.status === "PUBLISHED"
-                      ? "bg-emerald-500 text-white"
-                      : "bg-slate-700 text-white"
-                  }`}
-                >
-                  {post.status === "PUBLISHED" ? (
-                    <Eye className="w-3 h-3" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {posts.map((post) => {
+            const published = post.status === "PUBLISHED";
+            return (
+              <Card key={post.postId} padded={false} className="flex flex-col overflow-hidden">
+                <div className="relative aspect-video w-full bg-brand-soft">
+                  {post.imageUrl ? (
+                    <Image src={post.imageUrl} alt={post.title} fill className="object-cover" />
                   ) : (
-                    <EyeOff className="w-3 h-3" />
+                    <div className="flex h-full w-full items-center justify-center text-brand">
+                      <ImagePlus className="h-10 w-10" aria-hidden />
+                    </div>
                   )}
-                  <span>{post.status === "PUBLISHED" ? "공개중" : "비공개"}</span>
-                </span>
-              </div>
-
-              <div className="p-5">
-                <h3 className="text-sm font-bold text-slate-900 line-clamp-1">
-                  {post.title}
-                </h3>
-                <p className="mt-1.5 text-xs text-slate-500 line-clamp-2 min-h-[2rem]">
-                  {post.content || "소개 내용이 없습니다."}
-                </p>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    {new Date(post.createdAt).toLocaleDateString("ko-KR", {
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                    })}
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => openEditModal(post)}
-                      className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => deletePost(post.postId)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* 작성/수정 모달 */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 sticky top-0">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
-                  <Newspaper className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-slate-900">
-                  {editingPost ? "게시물 수정" : "새 게시물 작성"}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-4">
-                {/* 메인 사진 업로드 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    매장 메인 사진
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="relative w-full h-40 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center overflow-hidden hover:border-violet-300 transition-colors cursor-pointer"
-                  >
-                    {imagePreview ? (
-                      <Image
-                        src={imagePreview}
-                        alt="미리보기"
-                        fill
-                        className="object-cover"
-                      />
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="mb-3">
+                    {published ? (
+                      <Badge icon={Eye} className="border-success/30 bg-success-soft text-success">
+                        손님에게 보이는 중
+                      </Badge>
                     ) : (
-                      <div className="flex flex-col items-center text-slate-400">
-                        <ImagePlus className="w-6 h-6 mb-1.5" />
-                        <span className="text-xs font-medium">
-                          사진을 선택해 주세요
-                        </span>
-                      </div>
+                      <Badge icon={EyeOff} className="border-line-strong/40 bg-canvas text-ink-sub">
+                        숨김 (임시 저장)
+                      </Badge>
                     )}
-                  </button>
+                  </div>
+                  <h3 className="text-heading font-bold text-ink">{post.title}</h3>
+                  <p className="mt-2 line-clamp-3 flex-1 text-body text-ink-sub">
+                    {post.content || "내용 없음"}
+                  </p>
+                  <p className="mt-3 text-caption text-ink-sub">{formatKstFullDate(post.createdAt)} 작성</p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Button variant="secondary" icon={Pencil} onClick={() => openEditModal(post)}>
+                      고치기
+                    </Button>
+                    <Button variant="danger" icon={Trash2} onClick={() => deletePost(post)}>
+                      삭제
+                    </Button>
+                  </div>
                 </div>
-
-                {/* 제목 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    게시물 제목
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="예: 뿌리염색 전문, 영현 헤어"
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all"
-                  />
-                </div>
-
-                {/* 소개 내용 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    소개 내용
-                  </label>
-                  <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    rows={3}
-                    placeholder="매장 소개, 이벤트, 시술 특징 등을 자유롭게 작성해 주세요."
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all resize-none"
-                  />
-                </div>
-
-                {/* 공개 상태 */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    노출 상태
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-all text-slate-700"
-                  >
-                    <option value="PUBLISHED">공개 (소비자 앱에 노출)</option>
-                    <option value="DRAFT">비공개 (임시 저장)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2 sticky bottom-0">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 rounded-xl transition-colors cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-md shadow-violet-600/10 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <>
-                      <Check className="w-3 h-3" />
-                      <span>{editingPost ? "수정 완료" : "게시하기"}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+              </Card>
+            );
+          })}
         </div>
       )}
-    </div>
+
+      {/* 작성 / 수정 팝업 */}
+      {isModalOpen && (
+        <Modal
+          title={editingPost ? "소식 고치기" : "새 소식 쓰기"}
+          onClose={closeModal}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={closeModal}>
+                취소
+              </Button>
+              <Button
+                type="submit"
+                form="post-form"
+                icon={Check}
+                loading={submitting}
+                loadingText="저장하고 있어요"
+              >
+                {editingPost ? "고친 내용 저장" : "올리기"}
+              </Button>
+            </>
+          }
+        >
+          <form id="post-form" onSubmit={handleSubmit} className="space-y-5">
+            <Field label="사진" hint="매장 내부나 시술 사진을 올려 주세요.">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden rounded-control border-2 border-dashed border-line-strong bg-canvas hover:border-brand"
+              >
+                {imagePreview ? (
+                  <>
+                    <Image src={imagePreview} alt="선택한 사진" fill className="object-cover" />
+                    <span className="absolute bottom-3 right-3 rounded-control bg-ink/80 px-3 py-1.5 text-body font-semibold text-white">
+                      사진 바꾸기
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex flex-col items-center gap-2 text-body font-semibold text-ink">
+                    <ImagePlus className="h-8 w-8 text-brand" aria-hidden />
+                    눌러서 사진 고르기
+                  </span>
+                )}
+              </button>
+            </Field>
+
+            <Field label="제목" htmlFor="post-title">
+              <input
+                id="post-title"
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="예) 이번 주 뿌리 염색 할인"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="내용" htmlFor="post-content">
+              <textarea
+                id="post-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={4}
+                placeholder="매장 소개, 이벤트, 시술 특징 등을 적어 주세요."
+                className={`${inputClass} resize-none`}
+              />
+            </Field>
+
+            <fieldset>
+              <legend className="mb-2 text-body font-semibold text-ink">손님에게 보이기</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[
+                  { value: "PUBLISHED", label: "바로 보이기", Icon: Eye },
+                  { value: "DRAFT", label: "숨겨 두기", Icon: EyeOff },
+                ].map((opt) => {
+                  const checked = status === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`flex min-h-touch cursor-pointer items-center gap-3 rounded-control border-[1.5px] px-4 ${
+                        checked ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-canvas"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="post-status"
+                        value={opt.value}
+                        checked={checked}
+                        onChange={() => setStatus(opt.value)}
+                        className="h-5 w-5 accent-brand"
+                      />
+                      <opt.Icon className="h-5 w-5 text-ink-sub" aria-hidden />
+                      <span className="text-body font-semibold text-ink">{opt.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          </form>
+        </Modal>
+      )}
+    </PageContainer>
   );
 }

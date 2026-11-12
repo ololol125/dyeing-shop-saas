@@ -3,20 +3,30 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  DollarSign,
+  Wallet,
   Users,
-  Calendar,
+  CalendarCheck,
   Clock,
-  TrendingUp,
-  Loader2,
-  AlertCircle,
   RefreshCw,
   Trophy,
-  User,
   Scissors,
   Store,
   ArrowRight,
+  CalendarDays,
 } from "lucide-react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageContainer,
+  PageHeader,
+  ReservationStatusBadge,
+  SectionTitle,
+  StatCard,
+} from "@/components/owner/ui";
+import { authHeaders, errorMessage, formatWon } from "@/lib/client-utils";
 
 // 백엔드 응답 규격 인터페이스 매칭
 interface DashboardData {
@@ -44,7 +54,8 @@ interface DashboardData {
   }[];
 }
 
-// 🎯 export default 가 정확하게 명시된 React 컴포넌트
+const growthText = (value: number) => `지난달보다 ${value >= 0 ? "+" : ""}${value}%`;
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,22 +67,8 @@ export default function DashboardPage() {
     setError("");
     setNoShop(false);
 
-    const getCookie = (name: string) => {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop()?.split(";").shift();
-    };
-
     try {
-      const token = getCookie("token");
-
-      // 영현님의 매장 대시보드 API 주소 호출
-      const res = await fetch("/api/v1/shops/dashboard", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
+      const res = await fetch("/api/v1/shops/dashboard", { headers: authHeaders() });
       const resData = await res.json();
 
       if (res.status === 404) {
@@ -81,15 +78,13 @@ export default function DashboardPage() {
       }
 
       if (!res.ok || !resData.success) {
-        throw new Error(
-          resData.error || "대시보드 실시간 데이터를 가져오지 못했습니다.",
-        );
+        throw new Error(resData.error || "매장 현황을 가져오지 못했습니다.");
       }
 
       setData(resData);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -101,294 +96,160 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
-        <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
-        <p className="text-sm text-slate-500 mt-4 font-medium">
-          매장 실시간 통계 집계 중...
-        </p>
-      </div>
+      <PageContainer>
+        <LoadingState text="매장 현황을 불러오는 중입니다" />
+      </PageContainer>
     );
   }
 
   if (noShop) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
-          <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto mb-4">
-            <Store className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800">
-            아직 등록된 매장이 없어요
-          </h3>
-          <p className="text-xs text-slate-400 mt-1.5">
-            매장 정보를 먼저 등록해야 예약과 디자이너를 관리할 수 있습니다.
-          </p>
-          <Link
-            href="/shop/register"
-            className="mt-5 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center mx-auto space-x-1.5 transition-colors"
-          >
-            <span>매장 등록하러 가기</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </div>
+      <PageContainer narrow>
+        <Card>
+          <EmptyState
+            icon={Store}
+            title="먼저 매장을 등록해 주세요"
+            description="매장 정보를 등록하시면 예약과 선생님을 관리할 수 있어요."
+            action={
+              <Link
+                href="/shop/register"
+                className="inline-flex min-h-touch items-center gap-2 rounded-control bg-brand px-6 text-button font-bold text-white hover:bg-brand-pressed"
+              >
+                매장 등록하러 가기
+                <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            }
+          />
+        </Card>
+      </PageContainer>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50/50">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md text-center">
-          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800">
-            대시보드를 로드할 수 없습니다
-          </h3>
-          <p className="text-xs text-rose-400 mt-1">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="mt-5 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold cursor-pointer flex items-center mx-auto space-x-1"
-          >
-            <RefreshCw className="w-3 h-3" /> <span>다시 시도</span>
-          </button>
-        </div>
-      </div>
+      <PageContainer narrow>
+        <Card>
+          <ErrorState message={error || "매장 현황을 가져오지 못했습니다."} onRetry={fetchDashboardData} />
+        </Card>
+      </PageContainer>
     );
   }
 
   const { summary, recentReservations, topDesigners } = data;
 
   return (
-    <div className="p-6 md:p-10 font-sans antialiased text-slate-800 bg-slate-50/30 min-h-screen">
-      {/* 상단 타이틀 레이아웃 바 */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            헤어숍 경영 대시보드
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            데이터베이스 연동 기반 실시간 매장 운영 요약 리포트
-          </p>
-        </div>
-        <button
-          onClick={fetchDashboardData}
-          className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-800 hover:border-slate-300 shadow-sm transition-all cursor-pointer"
-          title="새로고침"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+    <PageContainer>
+      <PageHeader
+        title="오늘 한눈에 보기"
+        description="이번 달 매출과 오늘 예약을 확인하세요."
+        action={
+          <Button variant="secondary" icon={RefreshCw} onClick={fetchDashboardData}>
+            새로고침
+          </Button>
+        }
+      />
+
+      {/* 핵심 지표 */}
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="오늘 예약"
+          value={`${summary.todayReservations}건`}
+          icon={CalendarCheck}
+          note="오늘 방문 예정·완료"
+        />
+        <StatCard
+          label="확인 기다리는 예약"
+          value={`${summary.pendingReservations}건`}
+          icon={Clock}
+          note="원장님 확인이 필요해요"
+        />
+        <StatCard
+          label="이번 달 매출"
+          value={formatWon(summary.totalRevenue)}
+          icon={Wallet}
+          note={growthText(summary.revenueGrowth)}
+        />
+        <StatCard
+          label="이번 달 손님"
+          value={`${summary.activeCustomers}명`}
+          icon={Users}
+          note={growthText(summary.customerGrowth)}
+        />
       </div>
 
-      {/* 📊 핵심 KPI 스코어 카드 구역 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* 카드 1: 이번 달 총 매출 */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm group hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              이번 달 총 매출액
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-mono font-bold text-slate-900">
-            {summary.totalRevenue.toLocaleString()}원
-          </h2>
-          <p className="text-xs text-emerald-600 mt-2 flex items-center font-medium">
-            <TrendingUp className="w-3.5 h-3.5 mr-1" /> 전월 대비 +
-            {summary.revenueGrowth}%
-          </p>
-        </div>
-
-        {/* 카드 2: 이번 달 활성 고객 */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm group hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              이번 달 방문 손님
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-mono font-bold text-slate-900">
-            {summary.activeCustomers}명
-          </h2>
-          <p className="text-xs text-violet-600 mt-2 flex items-center font-medium">
-            <TrendingUp className="w-3.5 h-3.5 mr-1" /> 전월 대비 +
-            {summary.customerGrowth}%
-          </p>
-        </div>
-
-        {/* 카드 3: 오늘 매장 예약 확정 */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm group hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              오늘 시술/확정
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-mono font-bold text-slate-900">
-            {summary.todayReservations}건
-          </h2>
-          <p className="text-xs text-slate-400 mt-2">
-            오늘 방문 예정 및 마감 완료 수
-          </p>
-        </div>
-
-        {/* 카드 4: 대기 예약 */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm group hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              승인 대기 건수
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-mono font-bold text-slate-900">
-            {summary.pendingReservations}건
-          </h2>
-          <p className="text-xs text-rose-500 mt-2 font-medium">
-            원장님 확인 대기중
-          </p>
-        </div>
-      </div>
-
-      {/* 📊 하단 복합 데이터 섹션 (최근 스케줄 & 디자이너 랭킹) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 최근 접수된 스케줄 현황 (2컬럼 분량) */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              최근 접수 스케줄 (최신 5건)
-            </h3>
-            <span className="text-xs font-medium text-slate-400 font-mono">
-              Real-time Feed
-            </span>
-          </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* 최근 들어온 예약 */}
+        <Card className="lg:col-span-2">
+          <SectionTitle
+            action={
+              <Link
+                href="/reservations"
+                className="inline-flex min-h-touch items-center gap-1 rounded-control px-3 text-body font-bold text-brand hover:bg-brand-soft"
+              >
+                전체 보기
+                <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            }
+          >
+            최근 들어온 예약
+          </SectionTitle>
 
           {recentReservations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[220px] text-center text-slate-400">
-              <Calendar className="w-8 h-8 text-slate-200 mb-2" />
-              <p className="text-xs font-medium">
-                매장에 인서트된 예약 내역이 전혀 없습니다.
-              </p>
-            </div>
+            <EmptyState
+              icon={CalendarDays}
+              title="아직 들어온 예약이 없어요"
+              description="손님이 염색온 앱으로 예약하면 여기에 바로 보여요."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    <th className="pb-3">고객명</th>
-                    <th className="pb-3">시술/시간</th>
-                    <th className="pb-3">담당 디자이너</th>
-                    <th className="pb-3 text-center">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-600 font-medium">
-                  {recentReservations.map((res) => (
-                    <tr
-                      key={res.id}
-                      className="hover:bg-slate-50/40 transition-colors"
-                    >
-                      <td className="py-3.5 font-bold text-slate-800 flex items-center">
-                        <User className="w-3.5 h-3.5 mr-1 text-slate-400" />{" "}
-                        {res.customerName}
-                      </td>
-                      <td className="py-3.5">
-                        <span className="text-violet-600 font-bold bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded mr-2">
-                          {res.treatment}
-                        </span>
-                        <span className="font-mono text-slate-400">
-                          {res.time}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-slate-500 font-normal">
-                        {res.designerName}
-                      </td>
-                      <td className="py-3.5 text-center">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            res.status === "COMPLETED"
-                              ? "bg-slate-100 text-slate-600"
-                              : res.status === "CONFIRMED"
-                                ? "bg-violet-50 text-violet-700"
-                                : res.status === "NOSHOW"
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          {res.status === "COMPLETED"
-                            ? "시술 완료"
-                            : res.status === "CONFIRMED"
-                              ? "예약 확정"
-                              : res.status === "NOSHOW"
-                                ? "노쇼"
-                                : "취소됨"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className="divide-y divide-line">
+              {recentReservations.map((res) => (
+                <li key={res.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
+                  <span className="w-24 text-heading font-bold tabular-nums text-ink">{res.time}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body font-bold text-ink">{res.customerName} 손님</p>
+                    <p className="text-body text-ink-sub">
+                      {res.treatment} · {res.designerName}
+                    </p>
+                  </div>
+                  <ReservationStatusBadge status={res.status} />
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </Card>
 
-        {/* 이번 달 디자이너 실적 TOP 3 랭킹보드 (1컬럼 분량) */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              이번 달 디자이너 매출 랭킹
-            </h3>
-            <Trophy className="w-4 h-4 text-amber-500" />
-          </div>
+        {/* 이번 달 선생님별 매출 */}
+        <Card>
+          <SectionTitle>
+            <span className="inline-flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-warning" aria-hidden />
+              이번 달 선생님 순위
+            </span>
+          </SectionTitle>
 
           {topDesigners.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] text-center text-slate-400">
-              <Scissors className="w-8 h-8 text-slate-200 mb-2" />
-              <p className="text-xs font-medium">
-                활동중인 디자이너 혹은 실적이 없습니다.
-              </p>
-            </div>
+            <EmptyState icon={Scissors} title="아직 실적이 없어요" />
           ) : (
-            <div className="space-y-4 flex-1 flex flex-col justify-start">
+            <ol className="space-y-3">
               {topDesigners.map((designer) => (
-                <div
+                <li
                   key={designer.rank}
-                  className="flex items-center justify-between p-3.5 bg-slate-50/70 border border-slate-100 rounded-xl hover:border-slate-200 transition-all"
+                  className="flex items-center gap-3 rounded-control border border-line bg-canvas p-4"
                 >
-                  <div className="flex items-center space-x-3">
-                    <span
-                      className={`w-6 h-6 rounded-lg font-mono font-bold text-xs flex items-center justify-center ${
-                        designer.rank === 1
-                          ? "bg-amber-100 text-amber-700 font-extrabold"
-                          : designer.rank === 2
-                            ? "bg-slate-200 text-slate-700"
-                            : "bg-orange-100 text-orange-700"
-                      }`}
-                    >
-                      {designer.rank}
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">
-                        {designer.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        시술 건수 {designer.reservations}건
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-slate-900">
-                    {designer.revenue}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-button font-bold text-white">
+                    {designer.rank}
                   </span>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body font-bold text-ink">{designer.name}</p>
+                    <p className="text-caption text-ink-sub">시술 {designer.reservations}건</p>
+                  </div>
+                  <span className="text-body font-bold tabular-nums text-ink">{designer.revenue}</span>
+                </li>
               ))}
-            </div>
+            </ol>
           )}
-        </div>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }
