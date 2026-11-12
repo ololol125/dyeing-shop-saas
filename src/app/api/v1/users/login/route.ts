@@ -21,7 +21,8 @@ export async function POST(request: Request) {
       where: { email },
     });
 
-    if (!user) {
+    // 탈퇴한 계정은 로그인 불가
+    if (!user || user.role === "WITHDRAWN") {
       return NextResponse.json(
         { success: false, error: "이메일 또는 비밀번호가 일치하지 않습니다." },
         { status: 401 },
