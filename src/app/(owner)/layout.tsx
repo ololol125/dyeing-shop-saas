@@ -12,6 +12,7 @@ import {
   X,
   Newspaper,
   Store,
+  Wallet,
 } from "lucide-react";
 import { getCookie } from "@/lib/client-utils";
 import { Logo } from "@/components/brand/logo";
@@ -22,6 +23,7 @@ const menuItems = [
   { href: "/designers", label: "선생님(디자이너) 관리", icon: UserSquare2 },
   { href: "/shop", label: "매장 정보", icon: Store },
   { href: "/posts", label: "매장 소식 올리기", icon: Newspaper },
+  { href: "/settlements", label: "정산 (받을 돈)", icon: Wallet },
 ];
 
 export default function OwnerLayout({

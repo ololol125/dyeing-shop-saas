@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { portone } from "@/lib/portone";
 import { parseKstDateTime } from "@/lib/time";
+import { getShopCommissionBps } from "@/lib/settlement";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
     }
 
     const paymentId = `rsv-${randomUUID()}`;
+    // 결제 시점의 플랫폼 수수료율을 기록 (나중에 수수료율이 바뀌어도 이 결제의 정산액은 유지)
+    const commissionRateBps = await getShopCommissionBps(shop);
     const orderName = `${shop.shopName} ${MENU_LABELS[menuType]}`;
 
     await prisma.payment.create({
@@ -104,6 +107,7 @@ export async function POST(req: NextRequest) {
         notes: notes || null,
         orderName,
         amount,
+        commissionRateBps,
       },
     });
 
