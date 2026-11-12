@@ -1,1 +1,67 @@
+@import url("https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
 @import "tailwindcss";
+
+/*
+ * 염색온 디자인 시스템 (시안 B: 따뜻한 밤색)
+ * 소비자 앱(dyeing_client_app/lib/src/core/theme.dart)과 같은 값을 쓴다.
+ * - 글자 대비 WCAG AA 이상 (본문색 7:1 이상, 상태색 5.4:1 이상)
+ * - 상태는 색만으로 구분하지 않고 아이콘·글자를 함께 표시
+ * - 누르는 영역 최소 56px (h-touch / min-h-touch)
+ * 간격은 Tailwind 기본 4px 단위를 그대로 쓴다 (1=4, 2=8, 3=12, 4=16, 6=24, 8=32).
+ */
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+
+  /* 브랜드 */
+  --color-brand: #6e3b2a;
+  --color-brand-pressed: #572e20;
+  --color-brand-soft: #f3e9e2;
+
+  /* 배경·면 */
+  --color-canvas: #faf7f3;
+  --color-surface: #ffffff;
+
+  /* 글자 (연한 회색 글씨 금지) */
+  --color-ink: #231b17;
+  --color-ink-sub: #55483f;
+
+  /* 선 */
+  --color-line: #e3d8cf;
+  --color-line-strong: #8c7466;
+
+  /* 상태 (글씨 / 배경) */
+  --color-success: #1e6b37;
+  --color-success-soft: #e3f1e7;
+  --color-warning: #8a4b00;
+  --color-warning-soft: #fbebd5;
+  --color-error: #b3261e;
+  --color-error-soft: #fbe4e2;
+  --color-info: #1f4e79;
+  --color-info-soft: #e6eef6;
+
+  /* 글자 크기 단계 (text-display ~ text-caption) */
+  --text-display: 1.75rem;
+  --text-display--line-height: 1.35;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.4;
+  --text-heading: 1.375rem;
+  --text-heading--line-height: 1.4;
+  --text-button: 1.25rem;
+  --text-button--line-height: 1.3;
+  --text-body: 1.125rem;
+  --text-body--line-height: 1.55;
+  --text-caption: 1rem;
+  --text-caption--line-height: 1.5;
+
+  /* 모서리 (rounded-badge / rounded-control / rounded-card) */
+  --radius-badge: 8px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+
+  /* 누르는 영역 최소 크기 (h-touch, min-h-touch, min-w-touch) */
+  --spacing-touch: 56px;
+}
+
+body {
+  font-family: var(--font-sans);
+}
