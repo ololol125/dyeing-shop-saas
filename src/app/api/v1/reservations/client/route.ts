@@ -41,6 +41,10 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        payment: {
+          // 앱 결제 내역 화면에서 온라인 결제 여부 표시용
+          select: { paymentId: true, status: true, paidAt: true },
+        },
       },
       orderBy: {
         reservationTime: "desc", // 스키마의 reservationTime과 매핑

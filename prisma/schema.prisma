@@ -15,6 +15,7 @@ model AppUser {
   role         String        @db.VarChar(20)
   createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
   histories    HairHistory[]
+  payments     Payment[]
   reservations Reservation[]
   shops        Shop[]
 
@@ -37,6 +38,7 @@ model Shop {
   createdAt      DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
   designers      Designer[]
   histories      HairHistory[]
+  payments       Payment[]
   posts          Post[]
   reservations   Reservation[]
   owner          AppUser?       @relation(fields: [ownerId], references: [userId], onDelete: Cascade, onUpdate: NoAction)
@@ -80,14 +82,39 @@ model Reservation {
   menuType        String        @map("menu_type") @db.VarChar(50)
   totalAmount     Int           @map("total_amount")
   status          String        @default("CONFIRMED") @db.VarChar(20)
-  notes           String?       @db.Text 
+  notes           String?       @db.Text
   createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
   designers       AssignedTo[]
   histories       HairHistory[]
+  payment         Payment?
   client          AppUser?      @relation(fields: [clientId], references: [userId], onUpdate: NoAction)
   shop            Shop?         @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("reservation")
+}
+
+// 포트원 V2 결제 건. 결제 요청 시 예약 정보를 함께 보관해 두고,
+// 결제 검증이 끝난 뒤에만 Reservation을 생성한다 (미결제 예약이 매장 대시보드에 노출되지 않도록).
+model Payment {
+  paymentId       String       @id @map("payment_id") @db.VarChar(100)
+  clientId        Int          @map("client_id")
+  shopId          Int          @map("shop_id")
+  designerId      Int          @map("designer_id")
+  reservationTime DateTime     @map("reservation_time") @db.Timestamptz(6)
+  menuType        String       @map("menu_type") @db.VarChar(50)
+  notes           String?      @db.Text
+  orderName       String       @map("order_name") @db.VarChar(255)
+  amount          Int
+  status          String       @default("READY") @db.VarChar(20) // READY, PAID, FAILED
+  reservationId   Int?         @unique @map("reservation_id")
+  paidAt          DateTime?    @map("paid_at") @db.Timestamptz(6)
+  createdAt       DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client          AppUser      @relation(fields: [clientId], references: [userId], onUpdate: NoAction)
+  shop            Shop         @relation(fields: [shopId], references: [shopId], onDelete: Cascade, onUpdate: NoAction)
+  reservation     Reservation? @relation(fields: [reservationId], references: [reservationId], onDelete: SetNull, onUpdate: NoAction)
+
+  @@map("payment")
 }
 
 model AssignedTo {
