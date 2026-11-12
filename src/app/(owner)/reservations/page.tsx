@@ -263,10 +263,16 @@ export default function ReservationsPage() {
                           {date.toLocaleDateString("ko-KR", {
                             month: "2-digit",
                             day: "2-digit",
+                            timeZone: "Asia/Seoul",
                           })}
                         </div>
                         <div className="text-slate-400 text-[11px] mt-0.5">
-                          {res.reservationTime.substring(11, 16)}
+                          {date.toLocaleTimeString("ko-KR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                            timeZone: "Asia/Seoul",
+                          })}
                         </div>
                       </td>
 

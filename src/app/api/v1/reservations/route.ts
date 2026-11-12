@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { kstMonthRange, parseKstDateTime } from "@/lib/time";
 
 // 1. 📅 매장별 이번 달 예약 목록 조회 (GET) - 디자이너 다중 배지 레이어 데이터 추가
 export async function GET(request: Request) {
@@ -29,9 +29,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    // 서버는 UTC로 동작하므로 매장 기준(KST)으로 이번 달 범위를 계산
+    const { start: monthStart, end: monthEnd } = kstMonthRange();
 
     const reservations = await prisma.reservation.findMany({
       where: {
@@ -149,7 +148,7 @@ export async function POST(request: Request) {
       data: {
         shopId: shop.shopId,
         clientId: Number(clientId),
-        reservationTime: new Date(reservationTime),
+        reservationTime: parseKstDateTime(reservationTime),
         menuType,
         totalAmount: Number(totalAmount),
         status: "CONFIRMED",

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { kstDayRange, kstMonthRange, formatKstTime } from "@/lib/time";
 import { verifyAuth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -35,11 +35,10 @@ export async function GET(request: Request) {
     const shopId = userShop.shopId;
 
     // --- [날짜 기준 계산 구역] ---
+    // 서버는 UTC로 동작하므로 매장 기준(KST)으로 오늘/이번 달 범위를 계산
     const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
+    const { start: monthStart, end: monthEnd } = kstMonthRange(now);
+    const { start: todayStart, end: todayEnd } = kstDayRange(now);
 
     // --- [Prisma 병렬 쿼리 실행 구역] ---
     const [
@@ -139,7 +138,7 @@ export async function GET(request: Request) {
             : res.menuType === "ROOT_DYE"
               ? "뿌리 염색"
               : res.menuType,
-        time: res.reservationTime.toISOString().substring(11, 16),
+        time: formatKstTime(res.reservationTime),
         status: res.status,
       };
     });

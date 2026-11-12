@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { portone } from "@/lib/portone";
+import { parseKstDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const time = new Date(reservationTime);
+    const time = parseKstDateTime(String(reservationTime));
     if (Number.isNaN(time.getTime()) || time.getTime() < Date.now()) {
       return NextResponse.json(
         { success: false, error: "예약 일시가 올바르지 않습니다." },

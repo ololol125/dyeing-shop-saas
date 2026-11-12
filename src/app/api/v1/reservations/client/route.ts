@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { parseKstDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         data: {
           shopId: Number(shopId),
           clientId: decoded.userId,
-          reservationTime: new Date(reservationTime),
+          reservationTime: parseKstDateTime(reservationTime),
           menuType,
           totalAmount: Number(totalAmount),
           status: "CONFIRMED",
