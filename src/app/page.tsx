@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
+import { BUSINESS } from "@/lib/business";
 
 // 시작 페이지: 염색방 사장님 대상 (큰 글씨, 쉬운 말)
 
@@ -72,6 +73,12 @@ export default function Home() {
             </span>
           </Link>
           <nav className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/services"
+              className="hidden min-h-touch items-center whitespace-nowrap px-3 text-body font-bold text-ink hover:text-brand md:inline-flex"
+            >
+              서비스 및 요금
+            </Link>
             <Link
               href="/login"
               className="inline-flex min-h-touch items-center whitespace-nowrap rounded-control border-2 border-brand px-4 text-body font-bold text-brand hover:bg-brand-soft"
@@ -210,11 +217,17 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between md:px-6">
           <Logo size={36} />
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-body">
+            <Link href="/services" className="inline-flex min-h-touch items-center text-ink hover:text-brand">
+              서비스 및 요금
+            </Link>
             <Link href="/terms" className="inline-flex min-h-touch items-center text-ink hover:text-brand">
               이용약관
             </Link>
             <Link href="/privacy" className="inline-flex min-h-touch items-center font-bold text-ink underline underline-offset-4 hover:text-brand">
               개인정보처리방침
+            </Link>
+            <Link href="/refund" className="inline-flex min-h-touch items-center text-ink hover:text-brand">
+              취소·환불 규정
             </Link>
           </div>
         </div>
@@ -222,11 +235,12 @@ export default function Home() {
         {/* 사업자 정보 (전자상거래법 필수 노출 사항) */}
         <div className="mx-auto max-w-6xl border-t border-line px-4 py-6 md:px-6">
           <p className="text-caption leading-relaxed text-ink-sub">
-            상호명: 주식회사 씨엘엠티 · 대표자: 채영훈 · 사업자등록번호: 164-86-01874
+            상호명: {BUSINESS.name} · 대표자: {BUSINESS.ceo} · 사업자등록번호: {BUSINESS.registrationNumber}
+            {BUSINESS.mailOrderNumber && <> · 통신판매업 신고번호: {BUSINESS.mailOrderNumber}</>}
             <br />
-            사업장주소: 대구광역시 북구 대학로15길 5, 3층 · 전화번호:{" "}
-            <a href="tel:053-957-6388" className="font-semibold text-ink underline underline-offset-2">
-              053-957-6388
+            사업장주소: {BUSINESS.address} · 전화번호:{" "}
+            <a href={`tel:${BUSINESS.phone}`} className="font-semibold text-ink underline underline-offset-2">
+              {BUSINESS.phone}
             </a>
             <br />© {new Date().getFullYear()} 염색온. All rights reserved.
           </p>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { BUSINESS } from "@/lib/business";
 
 export const metadata = {
   title: "개인정보처리방침 | 염색온",
@@ -191,11 +192,12 @@ export default function PrivacyPage() {
           </section>
 
           <section className="pt-4 border-t border-slate-100 text-xs text-slate-400">
-            <p>상호명: 주식회사 씨엘엠티</p>
-            <p>대표자: 채영훈</p>
-            <p>사업자등록번호: 164-86-01874</p>
-            <p>사업장주소: 대구광역시 북구 대학로15길 5, 3층</p>
-            <p>전화번호: 053-957-6388</p>
+            <p>상호명: {BUSINESS.name}</p>
+            <p>대표자: {BUSINESS.ceo}</p>
+            <p>사업자등록번호: {BUSINESS.registrationNumber}</p>
+            {BUSINESS.mailOrderNumber && <p>통신판매업 신고번호: {BUSINESS.mailOrderNumber}</p>}
+            <p>사업장주소: {BUSINESS.address}</p>
+            <p>전화번호: {BUSINESS.phone}</p>
           </section>
         </div>
       </div>

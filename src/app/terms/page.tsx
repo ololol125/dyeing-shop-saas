@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { BUSINESS } from "@/lib/business";
 
 export const metadata = {
   title: "이용약관 | 염색온",
@@ -154,7 +155,69 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-base font-bold text-slate-900 mb-2">
-              제11조 (분쟁해결 및 재판관할)
+              제11조 (예약 및 결제)
+            </h2>
+            <ol className="list-decimal list-inside space-y-1.5">
+              <li>
+                회원은 소비자용 애플리케이션에서 매장, 시술, 담당 디자이너,
+                날짜와 시간을 선택하여 예약을 신청할 수 있습니다.
+              </li>
+              <li>
+                예약은 회원이 신용카드 또는 간편결제(카카오페이 등)로 시술
+                요금을 결제하여 결제가 완료된 때에 확정됩니다.
+              </li>
+              <li>
+                결제는 회사가 지정한 전자결제대행사(PG)를 통해 처리되며,
+                회사는 회원의 카드번호 등 결제수단 정보를 직접 저장하지
+                않습니다.
+              </li>
+              <li>
+                시술 요금은 매장이 정한 금액이 예약 화면에 표시되며, 시술
+                현장에서 머리 길이나 추가 시술에 따라 매장과 회원이 협의하여
+                추가 요금이 발생할 수 있습니다.
+              </li>
+            </ol>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-slate-900 mb-2">
+              제12조 (예약 취소 및 환불)
+            </h2>
+            <ol className="list-decimal list-inside space-y-1.5">
+              <li>
+                회원은 예약한 매장 또는 회사 고객센터(전화 053-957-6388)에
+                연락하여 예약을 취소할 수 있습니다.
+              </li>
+              <li>
+                환불 금액은 취소 시점에 따라 다음과 같습니다.
+                <ul className="mt-1.5 ml-5 list-disc space-y-1">
+                  <li>예약 시간 24시간 전까지 취소: 결제 금액 전액 환불</li>
+                  <li>예약 시간 24시간 이내 취소: 결제 금액의 50% 환불</li>
+                  <li>예약 시간 이후 취소 또는 연락 없이 방문하지 않은 경우(노쇼): 환불 불가</li>
+                </ul>
+              </li>
+              <li>
+                매장의 사정(휴업, 디자이너 부재 등)으로 예약이 취소되는 경우
+                결제 금액 전액을 환불합니다.
+              </li>
+              <li>
+                환불은 취소가 확인된 날부터 3영업일 이내에 결제한 수단으로
+                결제를 취소하는 방식으로 처리하며, 실제 환급 시점은 카드사나
+                결제사에 따라 달라질 수 있습니다.
+              </li>
+              <li>
+                자세한 내용은{" "}
+                <Link href="/refund" className="font-semibold text-violet-600 underline">
+                  취소·환불 규정
+                </Link>
+                을 따릅니다.
+              </li>
+            </ol>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-slate-900 mb-2">
+              제13조 (분쟁해결 및 재판관할)
             </h2>
             <p>
               회사와 회원 간 발생한 분쟁에 관하여는 대한민국 법을 적용하며,
@@ -166,14 +229,16 @@ export default function TermsPage() {
           <section className="pt-4 border-t border-slate-100">
             <h2 className="text-base font-bold text-slate-900 mb-2">부칙</h2>
             <p>이 약관은 2026년 8월 26일부터 시행합니다.</p>
+            <p>개정: 2026년 11월 13일 (제11조 예약 및 결제, 제12조 예약 취소 및 환불 신설)</p>
           </section>
 
           <section className="pt-4 border-t border-slate-100 text-xs text-slate-400">
-            <p>상호명: 주식회사 씨엘엠티</p>
-            <p>대표자: 채영훈</p>
-            <p>사업자등록번호: 164-86-01874</p>
-            <p>사업장주소: 대구광역시 북구 대학로15길 5, 3층</p>
-            <p>전화번호: 053-957-6388</p>
+            <p>상호명: {BUSINESS.name}</p>
+            <p>대표자: {BUSINESS.ceo}</p>
+            <p>사업자등록번호: {BUSINESS.registrationNumber}</p>
+            {BUSINESS.mailOrderNumber && <p>통신판매업 신고번호: {BUSINESS.mailOrderNumber}</p>}
+            <p>사업장주소: {BUSINESS.address}</p>
+            <p>전화번호: {BUSINESS.phone}</p>
           </section>
         </div>
       </div>
